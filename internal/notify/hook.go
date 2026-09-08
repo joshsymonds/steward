@@ -20,15 +20,13 @@ const eventStop = "Stop"
 const eventSessionEnd = "SessionEnd"
 
 // eventTurnComplete is the provider-neutral event emitted by adapters whose
-// notification API reports only that an agent turn finished. Codex's
-// agent-turn-complete notification maps here; unlike Claude's Stop hook it
-// carries no transcript path to inspect, so Decide handles it without the
-// Claude-specific transcript/judge pipeline.
+// notification API reports only that an agent turn finished. Unlike Claude's
+// Stop hook it carries no transcript path to inspect, so Decide handles it
+// without the Claude-specific transcript/judge pipeline.
 const eventTurnComplete = "TurnComplete"
 
 const (
 	harnessClaude = "claude-code"
-	harnessCodex  = "codex"
 	harnessPi     = "pi"
 )
 
@@ -55,38 +53,15 @@ type HookInput struct {
 	AgentType string `json:"agent_type"`
 }
 
-// codexNotifyInput is the legacy JSON object Codex passes as the notify
-// command's single argv value. It deliberately uses kebab-case field names.
-type codexNotifyInput struct {
-	Type                 string   `json:"type"`
-	ThreadID             string   `json:"thread-id"`
-	TurnID               string   `json:"turn-id"`
-	CWD                  string   `json:"cwd"`
-	InputMessages        []string `json:"input-messages"`
-	LastAssistantMessage string   `json:"last-assistant-message"`
-}
-
-type codexStopInput struct {
-	SessionID            string `json:"session_id"`
-	TurnID               string `json:"turn_id"`
-	TranscriptPath       string `json:"transcript_path"`
-	CWD                  string `json:"cwd"`
-	HookEventName        string `json:"hook_event_name"`
-	AgentID              string `json:"agent_id"`
-	AgentType            string `json:"agent_type"`
-	LastAssistantMessage string `json:"last_assistant_message"`
-}
-
 // ParseHookInput decodes exactly one provider payload from r and normalizes
-// it into HookInput, retaining automatic native Claude and staged legacy
-// Codex detection for old callers. Unknown fields are ignored. Empty input
+// it into HookInput, retaining automatic native Claude detection for callers.
+// Unknown fields are ignored. Empty input
 // or malformed JSON is an error rather than a zero-value HookInput. When r
 // contains more than one JSON value, only the first is decoded.
 func ParseHookInput(r io.Reader) (HookInput, error) { return ParseHookInputForHarness(r, "") }
 
 // ParseHookInputForHarness decodes one hook payload, making source authoritative
-// when harness is supplied. It intentionally does not infer Codex from generic
-// snake_case fields: native Codex needs an explicit source.
+// when harness is supplied.
 func ParseHookInputForHarness(r io.Reader, harness string) (HookInput, error) {
 	if harness != "" && !knownHarness(harness) {
 		return HookInput{}, parseHookError("unknown harness")
@@ -183,7 +158,7 @@ func canonicalHarness(raw json.RawMessage) (string, bool) {
 }
 
 func canonicalEvent(harness, event string) bool {
-	if harness == harnessCodex || harness == harnessPi {
+	if harness == harnessPi {
 		return event == eventTurnComplete
 	}
 	return event == eventStop || event == eventNotification || event == eventSessionEnd
@@ -196,12 +171,6 @@ func parseNativeHook(
 ) (HookInput, error) {
 	if harness == harnessPi {
 		return HookInput{}, parseHookError("Pi payload must be canonical")
-	}
-	if harness == harnessCodex {
-		return parseCodexStop(raw)
-	}
-	if harness == "" && stringField(fields, "type") == "agent-turn-complete" {
-		return parseLegacyCodex(raw)
 	}
 	if harness == "" || harness == harnessClaude {
 		if stringField(fields, "hook_event_name") == "" && stringField(fields, "session_id") == "" {
@@ -218,57 +187,6 @@ func parseNativeHook(
 		return in, nil
 	}
 	return HookInput{}, parseHookError("unknown harness")
-}
-
-func parseCodexStop(raw json.RawMessage) (HookInput, error) {
-	var codex codexStopInput
-	if err := json.Unmarshal(raw, &codex); err != nil {
-		return HookInput{}, parseHookError("invalid Codex payload")
-	}
-	if codex.HookEventName != eventStop && codex.HookEventName != "SubagentStop" {
-		return HookInput{}, parseHookError("invalid Codex Stop event")
-	}
-	if codex.HookEventName == "SubagentStop" && codex.AgentID == "" {
-		return HookInput{}, parseHookError("invalid Codex SubagentStop event")
-	}
-	in := HookInput{
-		SchemaVersion:        1,
-		Harness:              harnessCodex,
-		SessionID:            codex.SessionID,
-		CompletionID:         codex.TurnID,
-		TranscriptPath:       codex.TranscriptPath,
-		CWD:                  codex.CWD,
-		HookEventName:        eventTurnComplete,
-		AgentID:              codex.AgentID,
-		AgentType:            codex.AgentType,
-		LastAssistantMessage: codex.LastAssistantMessage,
-	}
-	if err := validateInput(in, true); err != nil {
-		return HookInput{}, err
-	}
-	return in, nil
-}
-
-func parseLegacyCodex(raw json.RawMessage) (HookInput, error) {
-	var codex codexNotifyInput
-	if err := json.Unmarshal(raw, &codex); err != nil {
-		return HookInput{}, parseHookError("invalid legacy Codex payload")
-	}
-	in := HookInput{
-		SchemaVersion:        1,
-		Harness:              harnessCodex,
-		SessionID:            codex.ThreadID,
-		CompletionID:         codex.TurnID,
-		CWD:                  codex.CWD,
-		HookEventName:        eventTurnComplete,
-		NotificationType:     codex.Type,
-		Message:              strings.Join(codex.InputMessages, "\n"),
-		LastAssistantMessage: codex.LastAssistantMessage,
-	}
-	if err := validateInput(in, false); err != nil {
-		return HookInput{}, err
-	}
-	return in, nil
 }
 
 func stringField(fields map[string]json.RawMessage, name string) string {
@@ -296,7 +214,7 @@ func validateInput(in HookInput, completionRequired bool) error {
 func parseHookError(reason string) error { return fmt.Errorf("parsing hook input: %s", reason) }
 
 func knownHarness(h string) bool {
-	return h == harnessClaude || h == harnessCodex || h == harnessPi
+	return h == harnessClaude || h == harnessPi
 }
 
 func validCompletionID(id string) bool {

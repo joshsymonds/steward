@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -42,7 +41,7 @@ func runNotifyCommandWithIO(args []string, stdin io.Reader, stdout, stderr io.Wr
 	flags := flag.NewFlagSet("notify", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	dryRun := flags.Bool("dry-run", false, "print what would be sent instead of sending it")
-	harness := flags.String("harness", "", "explicit hook harness (claude-code, codex, or pi)")
+	harness := flags.String("harness", "", "explicit hook harness (claude-code or pi)")
 	stateBase := flags.String("state-base", defaultNotifyStateBase(), "root directory for notify state")
 	if err := flags.Parse(args); err != nil {
 		return exitUsageError
@@ -59,13 +58,8 @@ func runNotifyCommandWithIO(args []string, stdin io.Reader, stdout, stderr io.Wr
 
 	ctx, cancel := context.WithTimeout(context.Background(), notifyHookTimeout)
 	defer cancel()
-	payload := stdin
-	if flags.NArg() == 1 {
-		// Codex passes its notification JSON as one argv value. Claude writes
-		// hook JSON to stdin. Normalize both before they reach dispatchNotify.
-		payload = strings.NewReader(flags.Arg(0))
-	} else if flags.NArg() > 1 {
-		_, _ = fmt.Fprintln(stderr, "steward notify: expected at most one JSON payload argument")
+	if flags.NArg() != 0 {
+		_, _ = fmt.Fprintln(stderr, "steward notify: does not accept positional arguments")
 		return 0
 	}
 
@@ -77,7 +71,7 @@ func runNotifyCommandWithIO(args []string, stdin io.Reader, stdout, stderr io.Wr
 		Environ:     os.Environ(),
 		SockPath:    notify.SocketPath(),
 		DialTimeout: clientDialTimeout,
-	}, payload, stdout, stderr)
+	}, stdin, stdout, stderr)
 	return 0
 }
 

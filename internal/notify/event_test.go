@@ -114,25 +114,6 @@ func TestPrepareEventImplicitClaudeUsesNormalizedSourceForIdentity(t *testing.T)
 	}
 }
 
-func TestPrepareEventLegacyCodexClearsNotificationMetadata(t *testing.T) {
-	input, err := ParseHookInput(strings.NewReader(`{
-		"type":"agent-turn-complete","thread-id":"legacy-session","turn-id":"legacy-turn",
-		"cwd":"/work/legacy","input-messages":["fix it"],"last-assistant-message":"fixed"
-	}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	prepared, err := PrepareEvent(input)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if prepared.Kind != eventKindCompletion || prepared.Harness != harnessCodex ||
-		prepared.SessionID != "legacy-session" || prepared.CompletionID != "legacy-turn" ||
-		prepared.NotificationType != "" || prepared.User != "fix it" || prepared.Assistant != "fixed" {
-		t.Fatalf("prepared legacy event = %+v", prepared)
-	}
-}
-
 func TestPrepareEventCapturesStructuralKindsAndFacts(t *testing.T) {
 	activePath := filepath.Join("testdata", "goal_active_set.jsonl")
 	cases := []struct {
@@ -148,14 +129,6 @@ func TestPrepareEventCapturesStructuralKindsAndFacts(t *testing.T) {
 				TranscriptPath: activePath,
 			},
 			kind: eventKindCompletion, goal: true,
-		},
-		{
-			name: "Codex completion",
-			in: HookInput{
-				Harness: harnessCodex, SessionID: "s", CompletionID: "turn",
-				HookEventName: eventTurnComplete,
-			},
-			kind: eventKindCompletion,
 		},
 		{
 			name: "Pi completion",

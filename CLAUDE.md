@@ -1,8 +1,7 @@
 # steward Development Guide
 
-Go implementation of terminal coding-agent utilities. Claude Code provides the
-rich statusline/hook surface; Codex CLI is also supported for external
-turn-complete notifications.
+Go implementation of terminal coding-agent utilities for Claude Code and Pi.
+Claude Code provides the rich statusline and hook surface.
 
 ## Project Structure
 

@@ -161,7 +161,7 @@ func TestClaimKeyScopesHarnessSessionKindAndCompletionID(t *testing.T) {
 	base := completionClaimKey(1)
 	variants := []claimKey{
 		base,
-		{Harness: harnessCodex, SessionID: base.SessionID, Kind: base.Kind, CompletionID: base.CompletionID},
+		{Harness: harnessClaude, SessionID: base.SessionID, Kind: base.Kind, CompletionID: base.CompletionID},
 		{Harness: base.Harness, SessionID: "other", Kind: base.Kind, CompletionID: base.CompletionID},
 		{Harness: base.Harness, SessionID: base.SessionID, Kind: eventKindInput, CompletionID: base.CompletionID},
 		{Harness: base.Harness, SessionID: base.SessionID, Kind: base.Kind, CompletionID: "other"},

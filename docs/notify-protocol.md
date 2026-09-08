@@ -45,8 +45,8 @@ UTF-8, an unpaired UTF-16 surrogate escape, unsupported versions, invalid event
 shapes, and unfinished or oversized lines. There is intentionally no
 compatibility with the former `hook_input` wire shape.
 
-`event.version` versions the request. `harness` is `claude-code`, `codex`, or
-`pi`; `kind` is `completion`, `input`, `cleanup`, or `ignored`. Source adapters
+`event.version` versions the request. `harness` is `claude-code` or `pi`;
+`kind` is `completion`, `input`, `cleanup`, or `ignored`. Source adapters
 prepare this value once. In particular, a Claude Stop scans its transcript once
 to capture goal state, reliable completion identity, and the latest user and
 assistant text. The daemon and inline fallback use the same prepared snapshot

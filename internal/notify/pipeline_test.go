@@ -283,7 +283,7 @@ func TestPipelineRunImplicitClaudeUsesTranscriptIdentity(t *testing.T) {
 }
 
 func TestPipelineProviderTurnCompleteComposesOnceWithNativeInput(t *testing.T) {
-	for _, harness := range []string{harnessCodex, harnessPi} {
+	for _, harness := range []string{harnessPi} {
 		t.Run(harness, func(t *testing.T) {
 			server, requests := captureNotificationServer(t)
 			defer server.Close()
@@ -570,7 +570,7 @@ func TestPipelineCompositionFailuresUseBoundedSafeFallback(t *testing.T) {
 			longFinal := strings.Repeat("# Earlier **detail** [link](https://invalid) ", 10) +
 				"`meaningful` tail"
 			if err := pipeline.Run(context.Background(), HookInput{
-				Harness: harnessCodex, SessionID: "failure", CompletionID: "turn-1",
+				Harness: harnessPi, SessionID: "failure", CompletionID: "turn-1",
 				CWD: "/work/project", HookEventName: eventTurnComplete,
 				Message: "user", LastAssistantMessage: longFinal,
 			}); err != nil {
@@ -629,7 +629,7 @@ func TestPipelineInlineAndDryRunNeverCompose(t *testing.T) {
 		var stdout strings.Builder
 		pipeline.Stdout = &stdout
 		if err := pipeline.Run(context.Background(), HookInput{
-			Harness: harnessCodex, SessionID: "dry", CompletionID: "completion",
+			Harness: harnessPi, SessionID: "dry", CompletionID: "completion",
 			CWD: "/work/project", HookEventName: eventTurnComplete,
 			LastAssistantMessage: "Dry-run fallback.",
 		}); err != nil {

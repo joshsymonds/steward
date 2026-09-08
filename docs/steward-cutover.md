@@ -45,7 +45,6 @@ service, environment, and secret-file wiring. The release must also update:
 - `home-manager/claude-code/default.nix`, `settings.json`,
   `hooks/aws-profile-mirror.sh`, and `hooks/README.md`
 - `home-manager/pi/default.nix`, `cc-tools.ts`, and `cc-tools.test.ts`
-- `home-manager/codex/managed-config.nix`
 - `home-manager/hosts/shrike.nix`
 - `home-manager/starship/default.nix`
 - `home-manager/statusline-aliases/default.nix`
@@ -65,7 +64,6 @@ The consumer is not yet deployed and this branch performs no live auth, model,
 provider, ntfy, or external-network verification.
 
 Consumer cutover still needs to replace its existing Pi package with this paired
-runtime, native root Stop hook trust, and its exact user `trusted_hash`, labels
-and quota production wiring, live verification, review, and release. Retire the
+runtime, labels and quota production wiring, live verification, review, and release. Retire the
 old daemon only during that coordinated cutover; do not migrate or delete user
 state independently.

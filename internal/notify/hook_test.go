@@ -62,31 +62,33 @@ func TestParseHookInput(t *testing.T) {
 		}
 	})
 
-	t.Run("Codex agent turn complete normalizes", func(t *testing.T) {
-		in, err := ParseHookInput(strings.NewReader(`{
+	t.Run("legacy Codex agent turn complete is rejected", func(t *testing.T) {
+		_, err := ParseHookInput(strings.NewReader(`{
 			"type": "agent-turn-complete",
 			"thread-id": "019c-thread-1",
-			"turn-id": "turn-7",
-			"cwd": "/home/josh/proj",
-			"input-messages": ["Please fix it", "and run tests"],
-			"last-assistant-message": "Fixed it and all tests pass."
+			"turn-id": "turn-7"
 		}`))
-		if err != nil {
-			t.Fatalf("ParseHookInput: unexpected error: %v", err)
+		if err == nil {
+			t.Fatal("legacy Codex payload was accepted")
 		}
-		want := HookInput{
-			SchemaVersion:        1,
-			Harness:              harnessCodex,
-			SessionID:            "019c-thread-1",
-			CompletionID:         "turn-7",
-			CWD:                  "/home/josh/proj",
-			HookEventName:        eventTurnComplete,
-			NotificationType:     "agent-turn-complete",
-			Message:              "Please fix it\nand run tests",
-			LastAssistantMessage: "Fixed it and all tests pass.",
+	})
+
+	t.Run("explicit native Codex harness is rejected", func(t *testing.T) {
+		_, err := ParseHookInputForHarness(strings.NewReader(`{
+			"session_id":"session-1","turn_id":"turn-1","hook_event_name":"Stop"
+		}`), "codex")
+		if err == nil {
+			t.Fatal("native Codex harness was accepted")
 		}
-		if in != want {
-			t.Errorf("ParseHookInput mismatch\ngot:  %+v\nwant: %+v", in, want)
+	})
+
+	t.Run("canonical Codex harness is rejected", func(t *testing.T) {
+		_, err := ParseHookInput(strings.NewReader(`{
+			"schema_version":1,"harness":"codex","session_id":"session-1",
+			"completion_id":"turn-1","hook_event_name":"TurnComplete"
+		}`))
+		if err == nil {
+			t.Fatal("canonical Codex payload was accepted")
 		}
 	})
 
@@ -227,7 +229,7 @@ func TestParseCanonicalHookErrorsAreGenericAndBounded(t *testing.T) {
 			name: "source mismatch",
 			raw: `{"schema_version":1,"harness":"pi","session_id":"s",` +
 				`"completion_id":"c","hook_event_name":"TurnComplete","payload":"` + marker + `"}`,
-			source: harnessCodex,
+			source: harnessClaude,
 		},
 	}
 	for _, tt := range cases {
@@ -244,22 +246,6 @@ func TestParseCanonicalHookErrorsAreGenericAndBounded(t *testing.T) {
 }
 
 func TestParseHookInputForHarnessNativeIdentity(t *testing.T) {
-	t.Run("native Codex Stop normalizes turn", func(t *testing.T) {
-		in, err := ParseHookInputForHarness(
-			strings.NewReader(
-				`{"session_id":"thread-1","turn_id":"turn-7","cwd":"/tmp/p","hook_event_name":"Stop","last_assistant_message":null}`,
-			),
-			"codex",
-		)
-		if err != nil {
-			t.Fatalf("ParseHookInputForHarness: %v", err)
-		}
-		if in.Harness != "codex" || in.SchemaVersion != 1 ||
-			in.HookEventName != eventTurnComplete ||
-			in.CompletionID != "turn-7" {
-			t.Fatalf("normalized input = %+v", in)
-		}
-	})
 	t.Run("canonical Pi requires completion id", func(t *testing.T) {
 		_, err := ParseHookInputForHarness(
 			strings.NewReader(
@@ -290,7 +276,7 @@ func TestParseHookInputForHarnessNativeIdentity(t *testing.T) {
 			strings.NewReader(
 				`{"schema_version":1,"harness":"pi","hook_event_name":"TurnComplete","session_id":"pi-1","completion_id":"c-1"}`,
 			),
-			"codex",
+			"claude-code",
 		)
 		if err == nil {
 			t.Fatal("expected harness mismatch error")
@@ -312,37 +298,6 @@ func TestParseCanonicalHookValidatedIdentityCannotBeOverwrittenByAliases(t *test
 	if in.SchemaVersion != 1 || in.Harness != harnessPi {
 		t.Fatalf("validated canonical identity overwritten by aliases: %+v", in)
 	}
-}
-
-func TestParseLegacyCodexCompletionID(t *testing.T) {
-	for _, tt := range []struct {
-		name        string
-		turnIDField string
-	}{
-		{name: "missing"},
-		{name: "null", turnIDField: `,"turn-id":null`},
-		{name: "empty", turnIDField: `,"turn-id":""`},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			in, err := ParseHookInput(strings.NewReader(
-				`{"type":"agent-turn-complete","thread-id":"s","cwd":"/tmp"` + tt.turnIDField + `}`,
-			))
-			if err != nil {
-				t.Fatalf("ParseHookInput: %v", err)
-			}
-			if in.Harness != harnessCodex || in.SchemaVersion != 1 || in.CompletionID != "" {
-				t.Fatalf("normalized input = %+v", in)
-			}
-		})
-	}
-
-	t.Run("supplied invalid ID", func(t *testing.T) {
-		if _, err := ParseHookInput(strings.NewReader(
-			`{"type":"agent-turn-complete","thread-id":"s","cwd":"/tmp","turn-id":"bad\nvalue"}`,
-		)); err == nil {
-			t.Fatal("legacy Codex completion accepted invalid turn-id")
-		}
-	})
 }
 
 func TestParseHookInputCompletionIdentityMatrix(t *testing.T) {
@@ -448,59 +403,6 @@ func TestParseHookInputSourceAndNativeTypeMatrix(t *testing.T) {
 		}
 	})
 
-	for _, event := range []string{"", "FutureStop"} {
-		t.Run("invalid native Codex event "+event, func(t *testing.T) {
-			raw := `{"session_id":"thread-1","turn_id":"turn-1","hook_event_name":"` + event + `"}`
-			if _, err := ParseHookInputForHarness(strings.NewReader(raw), harnessCodex); err == nil {
-				t.Fatal("invalid native Codex event was accepted")
-			}
-		})
-	}
-
-	t.Run("native Codex missing turn ID", func(t *testing.T) {
-		if _, err := ParseHookInputForHarness(
-			strings.NewReader(`{"session_id":"thread-1","hook_event_name":"Stop"}`),
-			harnessCodex,
-		); err == nil {
-			t.Fatal("native Codex Stop without turn_id was accepted")
-		}
-	})
-
-	t.Run("native Codex nullable text and path", func(t *testing.T) {
-		in, err := ParseHookInputForHarness(
-			strings.NewReader(
-				`{"session_id":"thread-1","turn_id":"turn-1","hook_event_name":"Stop",`+
-					`"transcript_path":null,"last_assistant_message":null}`,
-			),
-			harnessCodex,
-		)
-		if err != nil {
-			t.Fatalf("ParseHookInputForHarness: %v", err)
-		}
-		if in.TranscriptPath != "" || in.LastAssistantMessage != "" {
-			t.Fatalf("nullable fields = %+v", in)
-		}
-	})
-
-	t.Run("native Codex SubagentStop is not a root completion", func(t *testing.T) {
-		in, err := ParseHookInputForHarness(
-			strings.NewReader(
-				`{"session_id":"thread-1","turn_id":"turn-1","hook_event_name":"SubagentStop",`+
-					`"agent_id":"agent-1","agent_type":"worker","last_assistant_message":"done"}`,
-			),
-			harnessCodex,
-		)
-		if err != nil {
-			t.Fatalf("ParseHookInputForHarness: %v", err)
-		}
-		if in.HookEventName != eventTurnComplete || in.AgentID != "agent-1" || in.AgentType != "worker" {
-			t.Fatalf("normalized subagent input = %+v", in)
-		}
-		if got := Decide(in, ScanResult{}); got.Outcome != OutcomeSilent {
-			t.Fatalf("Decide() = %+v, want silent agent context", got)
-		}
-	})
-
 	t.Run("snake case turn ID does not infer native Codex", func(t *testing.T) {
 		in, err := ParseHookInput(strings.NewReader(
 			`{"session_id":"sess-1","turn_id":"turn-1","hook_event_name":"Stop"}`,
@@ -513,13 +415,11 @@ func TestParseHookInputSourceAndNativeTypeMatrix(t *testing.T) {
 		}
 	})
 
-	for _, harness := range []string{harnessCodex, harnessPi} {
-		t.Run("canonical "+harness+" Stop rejected", func(t *testing.T) {
-			raw := `{"schema_version":1,"harness":"` + harness +
-				`","session_id":"s","completion_id":"c","hook_event_name":"Stop"}`
-			if _, err := ParseHookInput(strings.NewReader(raw)); err == nil {
-				t.Fatal("provider Stop entered canonical TurnComplete path")
-			}
-		})
-	}
+	t.Run("canonical Pi Stop rejected", func(t *testing.T) {
+		raw := `{"schema_version":1,"harness":"pi","session_id":"s",` +
+			`"completion_id":"c","hook_event_name":"Stop"}`
+		if _, err := ParseHookInput(strings.NewReader(raw)); err == nil {
+			t.Fatal("Pi Stop entered canonical TurnComplete path")
+		}
+	})
 }

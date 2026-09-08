@@ -51,7 +51,7 @@ type PreparedEvent struct {
 // assistant UUID (then message.id); failure to establish that identity clears
 // any hook-supplied ID and keeps a deterministic hook-text fallback.
 func PrepareEvent(input HookInput) (PreparedEvent, error) {
-	harness := defaultHarness(input.Harness, input.HookEventName)
+	harness := defaultHarness(input.Harness)
 	input.Harness = harness
 	if !validPreparationInput(input, harness) {
 		return PreparedEvent{}, invalidPreparedEventError()
@@ -97,7 +97,7 @@ func preparedEventKind(harness, sourceEvent, notificationType string) string {
 			return eventKindCompletion
 		}
 	case eventTurnComplete:
-		if harness == harnessCodex || harness == harnessPi {
+		if harness == harnessPi {
 			return eventKindCompletion
 		}
 	case eventNotification:
@@ -232,7 +232,7 @@ func validCompletionEventShape(event PreparedEvent) bool {
 	switch event.Harness {
 	case harnessClaude:
 		return event.SourceEvent == eventStop
-	case harnessCodex, harnessPi:
+	case harnessPi:
 		return event.SourceEvent == eventTurnComplete && !event.GoalActive
 	default:
 		return false

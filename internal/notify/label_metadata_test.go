@@ -69,7 +69,7 @@ func TestReadLabelMetadataReturnsValidatedPublicProjection(t *testing.T) {
 		{
 			name: "maximum uint64 generations remain exact",
 			record: func() labelRecord {
-				record := labelMetadataRecord(harnessCodex, "maximum-session")
+				record := labelMetadataRecord(harnessPi, "maximum-session")
 				record.SourceGeneration = math.MaxUint64
 				record.ExchangeCount = math.MaxUint64
 				record.LastSuccessfulRefreshExchange = math.MaxUint64
@@ -274,9 +274,8 @@ func TestReadLabelMetadataScopesExactHarnessSessionPair(t *testing.T) {
 	writeLabelMetadataRecord(t, stateBase, record, 512)
 
 	for _, scope := range []struct{ harness, session string }{
-		{harnessCodex, record.Session},
-		{record.Harness, "different-native-id"},
 		{harnessClaude, record.Session},
+		{record.Harness, "different-native-id"},
 	} {
 		metadata, present, err := ReadLabelMetadata(stateBase, scope.harness, scope.session)
 		if err != nil || present || metadata != (LabelMetadata{}) {

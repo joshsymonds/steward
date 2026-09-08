@@ -151,9 +151,9 @@ func waitForDecisionRecords(t *testing.T, path string, count int) []DecisionReco
 	return nil
 }
 
-func completionFrame(harness, sessionID, completionID, assistant string) Frame {
+func completionFrame(sessionID, completionID, assistant string) Frame {
 	return Frame{Event: PreparedEvent{
-		Version: 1, Harness: harness, SessionID: sessionID, Kind: eventKindCompletion,
+		Version: 1, Harness: harnessPi, SessionID: sessionID, Kind: eventKindCompletion,
 		SourceEvent: eventTurnComplete, CompletionID: completionID, CWD: "/work/project",
 		User: "same user", Assistant: assistant,
 	}, Workspace: "earth:3"}
@@ -191,7 +191,7 @@ func TestDaemonFloodSameCompletionIDComposesAndSendsExactlyOnce(t *testing.T) {
 		Composer: composer, Sender: Sender{URL: server.URL, Client: server.Client()},
 		Log: DecisionLog{Path: logPath}, Host: "host",
 	}})
-	frame := completionFrame(harnessPi, "session", "completion", "same assistant")
+	frame := completionFrame("session", "completion", "same assistant")
 
 	const flood = 40
 	results := make(chan Ack, flood)
@@ -254,10 +254,14 @@ func TestDaemonDistinctSameTextIDsAndScopesRemainIndependent(t *testing.T) {
 		Log: DecisionLog{Path: filepath.Join(t.TempDir(), "decisions.jsonl")}, Host: "host",
 	}})
 	frames := []Frame{
-		completionFrame(harnessPi, "session-a", "id-a", "identical text"),
-		completionFrame(harnessPi, "session-a", "id-b", "identical text"),
-		completionFrame(harnessPi, "session-b", "id-a", "identical text"),
-		completionFrame(harnessCodex, "session-a", "id-a", "identical text"),
+		completionFrame("session-a", "id-a", "identical text"),
+		completionFrame("session-a", "id-b", "identical text"),
+		completionFrame("session-b", "id-a", "identical text"),
+		{Event: PreparedEvent{
+			Version: 1, Harness: harnessClaude, SessionID: "session-a", Kind: eventKindCompletion,
+			SourceEvent: eventStop, CompletionID: "id-a", CWD: "/work/project",
+			User: "same user", Assistant: "identical text",
+		}, Workspace: "earth:3"},
 	}
 	for _, frame := range frames {
 		requireFrameAck(t, running.socket, frame, ackStatusAccepted)
@@ -398,7 +402,7 @@ func TestDaemonAckPrecedesBlockedCompositionAndInputBypassesIt(t *testing.T) {
 		Log:      DecisionLog{Path: filepath.Join(t.TempDir(), "decisions.jsonl")}, Host: "host",
 	}})
 
-	requireFrameAck(t, running.socket, completionFrame(harnessPi, "slow", "slow-id", "fallback"), ackStatusAccepted)
+	requireFrameAck(t, running.socket, completionFrame("slow", "slow-id", "fallback"), ackStatusAccepted)
 	select {
 	case <-entered:
 	case <-time.After(time.Second):
@@ -437,7 +441,7 @@ func TestDaemonFinalSendFailureReleasesClaimForSourceRetry(t *testing.T) {
 		Log: DecisionLog{Path: filepath.Join(t.TempDir(), "decisions.jsonl")}, Host: "host",
 		LabelStore: NewLabelStore(stateBase),
 	}})
-	frame := completionFrame(harnessPi, "retry", "same-id", "fallback")
+	frame := completionFrame("retry", "same-id", "fallback")
 	requireFrameAck(t, running.socket, frame, ackStatusAccepted)
 	select {
 	case <-firstFinished:
@@ -487,8 +491,8 @@ func TestDaemonDuplicateNeverMutatesLabelCounters(t *testing.T) {
 		Log: DecisionLog{Path: filepath.Join(t.TempDir(), "decisions.jsonl")}, Host: "host",
 		LabelStore: NewLabelStore(stateBase),
 	}})
-	first := completionFrame(harnessPi, "duplicates", "id-1", "identical material")
-	second := completionFrame(harnessPi, "duplicates", "id-2", "identical material")
+	first := completionFrame("duplicates", "id-1", "identical material")
+	second := completionFrame("duplicates", "id-2", "identical material")
 	requireFrameAckAndHandlerCompletion(t, running.socket, first, ackStatusAccepted)
 	_ = waitNotification(t, requests)
 	requireFrameAckAndHandlerCompletion(t, running.socket, second, ackStatusAccepted)
@@ -520,7 +524,7 @@ func TestDaemonHelperFailureFallbackSuccessRetainsClaim(t *testing.T) {
 		Composer: composer, Sender: Sender{URL: server.URL, Client: server.Client()},
 		Log: DecisionLog{Path: filepath.Join(t.TempDir(), "decisions.jsonl")}, Host: "host",
 	}})
-	frame := completionFrame(harnessPi, "fallback", "id", "fallback body")
+	frame := completionFrame("fallback", "id", "fallback body")
 	requireFrameAckAndHandlerCompletion(t, running.socket, frame, ackStatusAccepted)
 	if request := waitNotification(t, requests); request.Body != "fallback body" {
 		t.Fatalf("request = %+v", request)
@@ -607,7 +611,7 @@ func TestDaemonDryRunAndMissingIdentityNeverClaimOrCompose(t *testing.T) {
 			Composer: panicComposer{}, DryRun: true, Stdout: &stdout,
 			Log: DecisionLog{Path: filepath.Join(t.TempDir(), "decisions.jsonl")}, Host: "host",
 		}})
-		frame := completionFrame(harnessPi, "dry", "id", "dry fallback")
+		frame := completionFrame("dry", "id", "dry fallback")
 		for range 2 {
 			requireFrameAck(t, running.socket, frame, ackStatusAccepted)
 		}
@@ -626,7 +630,7 @@ func TestDaemonDryRunAndMissingIdentityNeverClaimOrCompose(t *testing.T) {
 			Composer: panicComposer{}, Stdout: &stdout,
 			Log: DecisionLog{Path: filepath.Join(t.TempDir(), "decisions.jsonl")}, Host: "host",
 		}})
-		frame := completionFrame(harnessPi, "frame-dry", "id", "frame dry fallback")
+		frame := completionFrame("frame-dry", "id", "frame dry fallback")
 		frame.DryRun = true
 		for range 2 {
 			requireFrameAck(t, running.socket, frame, ackStatusAccepted)
@@ -653,9 +657,9 @@ func TestDaemonDryRunAndMissingIdentityNeverClaimOrCompose(t *testing.T) {
 			claims: claims,
 		})
 		frames := []Frame{
-			completionFrame(harnessPi, "session-only", "", "session-only fallback"),
-			completionFrame(harnessPi, "", "completion-only", "completion-only fallback"),
-			completionFrame(harnessPi, "", "", "identity-free fallback"),
+			completionFrame("session-only", "", "session-only fallback"),
+			completionFrame("", "completion-only", "completion-only fallback"),
+			completionFrame("", "", "identity-free fallback"),
 		}
 		for _, frame := range frames {
 			for range 2 {
@@ -688,7 +692,7 @@ func TestDaemonStructuralIgnoredChildGoalAndCleanupHaveNoEffects(t *testing.T) {
 		Composer: panicComposer{}, Sender: Sender{URL: server.URL, Client: server.Client()},
 		Log: DecisionLog{Path: filepath.Join(t.TempDir(), "decisions.jsonl")}, Host: "host",
 	}})
-	child := completionFrame(harnessPi, "child", "id", "must not send")
+	child := completionFrame("child", "id", "must not send")
 	child.Event.AgentType = "worker"
 	goal := Frame{Event: PreparedEvent{
 		Version: 1, Harness: harnessClaude, SessionID: "goal", Kind: eventKindCompletion,
@@ -731,7 +735,7 @@ func TestDaemonAckWriteFailureDoesNotRevokeAcceptedWork(t *testing.T) {
 		defer close(done)
 		daemon.handleConn(context.Background(), failedAckWriteConn{daemonConnection})
 	}()
-	if err := EncodeFrame(client, completionFrame(harnessPi, "ambiguous", "id", "fallback")); err != nil {
+	if err := EncodeFrame(client, completionFrame("ambiguous", "id", "fallback")); err != nil {
 		t.Fatal(err)
 	}
 	_ = client.Close()
@@ -856,7 +860,7 @@ func TestDaemonShutdownCancelsCompositionAndDrainsFallback(t *testing.T) {
 		Log:      DecisionLog{Path: filepath.Join(t.TempDir(), "decisions.jsonl")}, Host: "host",
 	}}
 	go func() { done <- daemon.Serve(ctx, listener) }()
-	frame := completionFrame(harnessPi, "shutdown", "id", "shutdown fallback")
+	frame := completionFrame("shutdown", "id", "shutdown fallback")
 	requireFrameAck(t, listener.Addr().String(), frame, ackStatusAccepted)
 	select {
 	case <-entered:
@@ -926,7 +930,7 @@ func TestDaemonShutdownDrainRemainsBounded(t *testing.T) {
 	}()
 	requireFrameAck(
 		t, listener.Addr().String(),
-		completionFrame(harnessPi, "bounded", "id", "fallback"), ackStatusAccepted,
+		completionFrame("bounded", "id", "fallback"), ackStatusAccepted,
 	)
 	select {
 	case <-entered:
@@ -1130,7 +1134,7 @@ func TestDaemonAcceptedLogsCarryOnlySafeMetadata(t *testing.T) {
 		Pipeline: Pipeline{DryRun: true, Stdout: io.Discard},
 		Logger:   slog.New(slog.NewTextHandler(&logs, nil)),
 	})
-	frame := completionFrame(harnessPi, "safe-session", "safe-id", "RAW BODY MUST NOT LOG")
+	frame := completionFrame("safe-session", "safe-id", "RAW BODY MUST NOT LOG")
 	requireFrameAck(t, running.socket, frame, ackStatusAccepted)
 	deadline := time.Now().Add(time.Second)
 	for !strings.Contains(logs.String(), "accepted") && time.Now().Before(deadline) {
@@ -1167,7 +1171,7 @@ func TestDaemonRejectsUnsupportedWireVersionBeforeEffects(t *testing.T) {
 		claims: claims,
 	})
 	wire := replaceFrameWireField(
-		t, completionFrame(harnessPi, "version", "id", "fallback"),
+		t, completionFrame("version", "id", "fallback"),
 		`"version":1`, `"version":2`,
 	)
 	ack, err := exchangeTestWire(running.socket, wire)
@@ -1207,7 +1211,7 @@ func TestDaemonRejectsNullScalarBeforeEffects(t *testing.T) {
 		claims: claims,
 	})
 	wire := replaceFrameWireField(
-		t, completionFrame(harnessPi, "strict-scalars", "id", "fallback"),
+		t, completionFrame("strict-scalars", "id", "fallback"),
 		`"goal_active":false`, `"goal_active":null`,
 	)
 	ack, err := exchangeTestWire(running.socket, wire)

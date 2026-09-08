@@ -20,8 +20,8 @@ func TestDecideCompletionRootsAndStructuralSuppressions(t *testing.T) {
 			want: Decision{Outcome: OutcomeSend, Urgency: UrgencyDone, Reason: "root completion"},
 		},
 		{
-			name: "Codex root TurnComplete sends done",
-			in:   HookInput{Harness: harnessCodex, HookEventName: eventTurnComplete},
+			name: "Pi root TurnComplete sends done",
+			in:   HookInput{Harness: harnessPi, HookEventName: eventTurnComplete},
 			want: Decision{Outcome: OutcomeSend, Urgency: UrgencyDone, Reason: "root completion"},
 		},
 		{
@@ -38,7 +38,7 @@ func TestDecideCompletionRootsAndStructuralSuppressions(t *testing.T) {
 		{
 			name: "AgentID child is silent",
 			in: HookInput{
-				Harness: harnessCodex, HookEventName: eventTurnComplete, AgentID: "child-1",
+				Harness: harnessPi, HookEventName: eventTurnComplete, AgentID: "child-1",
 			},
 			want: Decision{Outcome: OutcomeSilent, Reason: "agent context"},
 		},
@@ -163,7 +163,7 @@ func TestDecideCompletionTextNeverChangesEligibilityOrUrgency(t *testing.T) {
 	}
 	for _, text := range texts {
 		in := HookInput{
-			Harness: harnessCodex, HookEventName: eventTurnComplete,
+			Harness: harnessPi, HookEventName: eventTurnComplete,
 			LastAssistantMessage: text,
 		}
 		got := Decide(in, ScanResult{})

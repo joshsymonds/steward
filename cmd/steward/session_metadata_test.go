@@ -176,9 +176,21 @@ func TestRunSessionMetadataKnownResponseIsStrictBoundedAndQuiet(t *testing.T) {
 	}
 }
 
+func TestRunSessionMetadataRejectsCodexHarness(t *testing.T) {
+	exitCode, stdout, _, _ := runSessionMetadataForTest(t, []string{
+		"--state-base=" + t.TempDir(),
+		"--session-id=session-1",
+		"--harness=codex",
+	})
+	if exitCode != sessionMetadataInvalidRequestExitCode ||
+		!strings.Contains(stdout, `"status":"invalid_request"`) {
+		t.Fatalf("exit/stdout = %d/%q", exitCode, stdout)
+	}
+}
+
 func TestRunSessionMetadataEmitsCanonicalFullUint64Strings(t *testing.T) {
 	stateBase := t.TempDir()
-	snapshot := validSessionMetadataSnapshot("codex", "maximum-session")
+	snapshot := validSessionMetadataSnapshot("pi", "maximum-session")
 	snapshot.SourceGeneration = ^uint64(0)
 	snapshot.ExchangeCount = ^uint64(0)
 	snapshot.LastSuccessfulRefreshExchange = ^uint64(0)
@@ -187,7 +199,7 @@ func TestRunSessionMetadataEmitsCanonicalFullUint64Strings(t *testing.T) {
 	exitCode, stdout, stderr, _ := runSessionMetadataForTest(t, []string{
 		"--state-base=" + stateBase,
 		"--session-id=" + snapshot.Session,
-		"--harness=codex",
+		"--harness=pi",
 	})
 	if exitCode != 0 || stderr != "" {
 		t.Fatalf("exit/stderr = %d/%q", exitCode, stderr)
@@ -381,7 +393,7 @@ func TestRunSessionMetadataRejectsInvalidRequestsBeforeIO(t *testing.T) {
 
 func TestRunSessionMetadataAcceptsExactHarnessAndSessionBoundaries(t *testing.T) {
 	stateBase := filepath.Join(t.TempDir(), "absent-state")
-	for _, harness := range []string{"claude-code", "codex", "pi"} {
+	for _, harness := range []string{"claude-code", "pi"} {
 		sessions := []string{strings.Repeat("s", 256), strings.Repeat("é", 128), "日本語-session"}
 		for _, session := range sessions {
 			exitCode, stdout, stderr, stdin := runSessionMetadataForTest(t, []string{
@@ -405,7 +417,7 @@ func TestRunSessionMetadataHelpIsDedicatedAndDoesNotReadStdin(t *testing.T) {
 			t.Fatalf("help %s = %d/%q/reads%d", flag, exitCode, stderr, stdin.reads.Load())
 		}
 		for _, text := range []string{
-			"Usage:", "steward session-metadata", "--harness", "claude-code", "codex", "pi",
+			"Usage:", "steward session-metadata", "--harness", "claude-code", "pi",
 			"--session-id", "--state-base",
 		} {
 			if !strings.Contains(stdout, text) {
@@ -594,7 +606,7 @@ func TestSessionMetadataActualBinaryDispatchAndExitDoNotWaitForStdin(t *testing.
 			name: "help dispatch",
 			args: []string{"session-metadata", "--help"},
 			wantOut: `Usage:
-  steward session-metadata --harness <claude-code|codex|pi> --session-id <native-id> [--state-base <path>]
+  steward session-metadata --harness <claude-code|pi> --session-id <native-id> [--state-base <path>]
 
 Read validated shared session naming metadata for one exact harness/session pair.
 The command never reads stdin or modifies notification state.

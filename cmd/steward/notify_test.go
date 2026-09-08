@@ -110,46 +110,15 @@ func TestDispatchNotifyAcceptedAndDuplicateAcksSkipInline(t *testing.T) {
 	}
 }
 
-func TestDispatchNotifyLegacyCodexWithOptionalTurnIDUsesDeterministicFallback(t *testing.T) {
-	for _, tt := range []struct {
-		name        string
-		turnIDField string
-		wantID      string
-	}{
-		{name: "native turn ID", turnIDField: `,"turn-id":"legacy-turn"`, wantID: "legacy-turn"},
-		{name: "missing optional turn ID"},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			sender, calls, bodies := fallbackServer(t)
-			cfg := testNotifyClientConfig(t, filepath.Join(t.TempDir(), "missing.sock"))
-			cfg.Sender = sender
-			payload := `{"type":"agent-turn-complete","thread-id":"legacy-session",` +
-				`"cwd":"/work/legacy","input-messages":["fix it"],` +
-				`"last-assistant-message":"legacy deterministic fallback"` + tt.turnIDField + `}`
-			var stderr bytes.Buffer
-			dispatchNotify(context.Background(), cfg, strings.NewReader(payload), io.Discard, &stderr)
-			if calls.Load() != 1 {
-				t.Fatalf("inline calls = %d stderr=%q", calls.Load(), stderr.String())
-			}
-			if body := <-bodies; body != "legacy deterministic fallback" {
-				t.Fatalf("fallback body = %q", body)
-			}
-			data, err := os.ReadFile(cfg.Log.Path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var record notify.DecisionRecord
-			if err = json.Unmarshal(bytes.TrimSpace(data), &record); err != nil {
-				t.Fatal(err)
-			}
-			if record.Harness != "codex" || record.Event != "TurnComplete" ||
-				record.SessionID != "legacy-session" || record.CompletionID != tt.wantID {
-				t.Fatalf("decision record = %+v", record)
-			}
-			if stderr.Len() != 0 {
-				t.Fatalf("stderr = %q", stderr.String())
-			}
-		})
+func TestRunNotifyCommandRejectsPositionalPayload(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := runNotifyCommandWithIO(
+		[]string{"--dry-run", canonicalPiPayload("ignored")},
+		strings.NewReader(canonicalPiPayload("stdin")), &stdout, &stderr,
+	)
+	if exitCode != 0 || stdout.Len() != 0 ||
+		!strings.Contains(stderr.String(), "does not accept positional arguments") {
+		t.Fatalf("exit/stdout/stderr = %d/%q/%q", exitCode, stdout.String(), stderr.String())
 	}
 }
 
@@ -371,7 +340,7 @@ func TestDispatchNotifyInlineAndDryRunNeverInvokePiHelper(t *testing.T) {
 	}
 }
 
-func TestRunNotifyCommandHarnessFlagPreparesRealCodexFrameAndWaitsForAck(t *testing.T) {
+func TestRunNotifyCommandHarnessFlagPreparesPiFrameAndWaitsForAck(t *testing.T) {
 	runtimeDirectory := t.TempDir()
 	socketPath := filepath.Join(runtimeDirectory, "steward", "notifyd.sock")
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
@@ -397,17 +366,18 @@ func TestRunNotifyCommandHarnessFlagPreparesRealCodexFrameAndWaitsForAck(t *test
 	}()
 	t.Setenv("XDG_RUNTIME_DIR", runtimeDirectory)
 	t.Setenv("STEWARD_NTFY_URL", "http://unused.invalid/topic")
-	payload := `{"session_id":"thread","turn_id":"turn","hook_event_name":"Stop","cwd":"/tmp"}`
+	payload := `{"schema_version":1,"harness":"pi","session_id":"thread",` +
+		`"completion_id":"turn","hook_event_name":"TurnComplete","cwd":"/tmp"}`
 	var stdout, stderr bytes.Buffer
 	if code := runNotifyCommandWithIO(
-		[]string{"--harness=codex", "--state-base=" + t.TempDir()},
+		[]string{"--harness=pi", "--state-base=" + t.TempDir()},
 		strings.NewReader(payload), &stdout, &stderr,
 	); code != 0 {
 		t.Fatalf("exit code = %d stderr=%q", code, stderr.String())
 	}
 	select {
 	case frame := <-frames:
-		if frame.Event.Harness != "codex" || frame.Event.Kind != "completion" ||
+		if frame.Event.Harness != "pi" || frame.Event.Kind != "completion" ||
 			frame.Event.SessionID != "thread" || frame.Event.CompletionID != "turn" {
 			t.Fatalf("frame = %+v", frame)
 		}

@@ -128,12 +128,9 @@ func (pipeline Pipeline) processPrepared(ctx context.Context, event PreparedEven
 	return pipeline.handleInput(ctx, event, now, project, locus, host, decision), nil
 }
 
-func defaultHarness(harness, event string) string {
+func defaultHarness(harness string) string {
 	if harness != "" {
 		return harness
-	}
-	if event == eventTurnComplete {
-		return harnessCodex
 	}
 	return harnessClaude
 }

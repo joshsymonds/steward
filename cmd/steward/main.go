@@ -101,7 +101,7 @@ Commands:
   render-clouds Emit AWS/gcloud/k8s chip chain as ANSI (for starship)
   subagent-statusline  Render per-row chip decorations for the claude agents view
   preview       Render every statusline/subagent-statusline scenario, labeled
-  notify        Agent notifier (Claude hook stdin or Codex JSON argument)
+  notify        Agent notifier (Claude or Pi JSON on stdin)
   notifyd       Long-running daemon that runs the notify pipeline over a control socket
   session-metadata  Read shared session naming metadata
   version       Print version information

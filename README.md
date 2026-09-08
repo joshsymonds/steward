@@ -1,9 +1,8 @@
 # steward
 
-High-performance Go utilities for terminal coding agents. Claude Code has the
-richest integration, and Codex CLI is supported for external turn-complete
-notifications. `steward` and `steward-statusline` are the canonical executable
-names.
+High-performance Go utilities for terminal coding agents. Steward integrates
+with Claude Code and Pi. `steward` and `steward-statusline` are the canonical
+executable names.
 
 ## Features
 
@@ -21,7 +20,7 @@ names.
 
 ### 🔔 Turn Notifications
 
-- **Deterministic root delivery** - Claude Stop and Codex/Pi TurnComplete events
+- **Deterministic root delivery** - Claude Stop and Pi TurnComplete events
   always deliver with done urgency; child and internal events stay silent
 - **Immediate input delivery** - Claude permission, elicitation, and
   agent-needs-input events deliver with blocked urgency without model latency
@@ -31,13 +30,13 @@ names.
 
 ## Agent compatibility
 
-| Capability | Claude Code | Codex CLI |
+| Capability | Claude Code | Pi |
 |---|---|---|
-| External notification command | Yes, JSON on stdin | Yes, JSON in one argument |
+| External notification command | Yes, JSON on stdin | Yes, canonical JSON on stdin |
 | Root turn-complete ntfy delivery | Yes | Yes |
-| Permission/external approval delivery | Yes | Use Codex's built-in TUI notifications |
+| Permission/external approval delivery | Yes | No |
 | Daemon-side Pi body composition and shared session labels | Yes, using reliable transcript identity | Yes, using native turn identity |
-| Replace the in-app status line with `steward-statusline` | Yes | No; Codex accepts built-in footer item identifiers only |
+| Steward-rendered in-app statusline | Yes, through the configured command | Yes, through the packaged extension |
 
 ## Installation
 
@@ -96,28 +95,6 @@ Add to your `~/.claude/settings.json`:
 }
 ```
 
-### Codex notifications
-
-Native root `Stop` integration, including the exact user `trusted_hash`, is
-part of the coordinated nix-config cutover and is not deployed yet. Do not
-configure legacy `notify` or `SubagentStop` integration.
-
-A synthetic canonical native-hook dry run can exercise the adapter without
-sending a notification:
-
-```bash
-steward notify --harness codex --dry-run <<'JSON'
-{
-  "session_id": "demo-session",
-  "turn_id": "demo-turn",
-  "transcript_path": "/tmp/demo-transcript.jsonl",
-  "cwd": "/tmp/project",
-  "hook_event_name": "Stop",
-  "last_assistant_message": "The requested work is complete."
-}
-JSON
-```
-
 ### Shared notification configuration
 
 The daemon uses `STEWARD_NTFY_URL` and optional `STEWARD_NTFY_TOKEN`.
@@ -157,29 +134,6 @@ one deterministic inline fallback from the same prepared snapshot. Claims cover 
 IDs for 24 hours, capped at 10,000; restarts clear them. Ambiguity can duplicate
 notifications, and crashes can lose accepted work. See [the notification
 protocol](docs/notify-protocol.md).
-
-### Codex status line
-
-Codex cannot invoke `steward-statusline` as its footer renderer. Unlike Claude
-Code's `statusLine.type = "command"` contract, Codex's `tui.status_line` is an
-ordered list of native item identifiers. A close native configuration is:
-
-```toml
-[tui]
-status_line = [
-  "model-with-reasoning",
-  "current-dir",
-  "git-branch",
-  "context-remaining",
-  "five-hour-limit",
-  "weekly-limit",
-]
-status_line_use_colors = true
-```
-
-This covers the core model/directory/git/context/rate-limit information, but
-the custom AWS, Google Cloud, Kubernetes, transcript-cost, and powerline-chip
-rendering in this repository cannot be injected into Codex's footer today.
 
 ## Control Commands
 

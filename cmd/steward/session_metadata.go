@@ -150,7 +150,7 @@ func setSessionMetadataQueryValue(
 
 func validSessionMetadataHarness(harness string) bool {
 	switch harness {
-	case "claude-code", "codex", "pi":
+	case "claude-code", "pi":
 		return true
 	default:
 		return false
@@ -184,7 +184,7 @@ func writeSessionMetadataJSON(stdout io.Writer, response any) error {
 
 func printSessionMetadataUsage(stdout io.Writer) error {
 	const usage = `Usage:
-  steward session-metadata --harness <claude-code|codex|pi> --session-id <native-id> [--state-base <path>]
+  steward session-metadata --harness <claude-code|pi> --session-id <native-id> [--state-base <path>]
 
 Read validated shared session naming metadata for one exact harness/session pair.
 The command never reads stdin or modifies notification state.

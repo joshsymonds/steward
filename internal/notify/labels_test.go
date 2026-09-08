@@ -15,9 +15,13 @@ import (
 )
 
 func labelTestEvent(harness, session, completion, user, assistant string) PreparedEvent {
+	sourceEvent := eventTurnComplete
+	if harness == harnessClaude {
+		sourceEvent = eventStop
+	}
 	return PreparedEvent{
 		Version: preparedEventVersion, Harness: harness, SessionID: session,
-		Kind: eventKindCompletion, SourceEvent: eventTurnComplete,
+		Kind: eventKindCompletion, SourceEvent: sourceEvent,
 		CompletionID: completion, CWD: "/work/SECRET-project",
 		User: user, Assistant: assistant,
 	}
@@ -557,7 +561,7 @@ func TestLabelStoreScopesExactHarnessSessionPair(t *testing.T) {
 	store := NewLabelStore(t.TempDir())
 	for _, scope := range []struct{ harness, session, label string }{
 		{harnessPi, "same", "Pi Shared Session"},
-		{harnessCodex, "same", "Codex Shared Session"},
+		{harnessClaude, "same", "Claude Shared Session"},
 		{harnessPi, "other", "Other Pi Session"},
 	} {
 		plan, err := store.planCompletion(labelTestEvent(scope.harness, scope.session, "id", "u", scope.label))
@@ -570,7 +574,7 @@ func TestLabelStoreScopesExactHarnessSessionPair(t *testing.T) {
 	}
 	for _, scope := range []struct{ harness, session, label string }{
 		{harnessPi, "same", "Pi Shared Session"},
-		{harnessCodex, "same", "Codex Shared Session"},
+		{harnessClaude, "same", "Claude Shared Session"},
 		{harnessPi, "other", "Other Pi Session"},
 	} {
 		label, err := store.lookupLabel(scope.harness, scope.session)
