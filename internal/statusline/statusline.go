@@ -394,15 +394,19 @@ func (s *Statusline) computeData(currentDir string) *CachedData {
 	data.Effort = s.input.Effort
 	data.PR = s.input.PR
 
-	// A configured Patchbay is the accounting source of truth. Only an
-	// unreachable gateway falls through to the legacy transcript path; an
-	// authentication, server, or response-shape failure stays visible as an
-	// error indicator and never mixes accounting bases.
-	data.Patchbay = patchbayCost(
-		s.deps.CacheDir, s.deps.CacheDuration, s.now(), s.deps.EnvReader, s.deps.PatchbayClient,
-	)
-	if data.Patchbay.Status == patchbayAvailable || data.Patchbay.Status == patchbayError {
-		return data
+	// A configured Patchbay is the accounting source of truth for non-Pi
+	// harnesses. Pi supplies its quota in the render input, so rendering it
+	// must not perform a gateway lookup. Only an unreachable gateway falls
+	// through to the legacy transcript path; an authentication, server, or
+	// response-shape failure stays visible as an error indicator and never
+	// mixes accounting bases.
+	if s.input.Harness != requiredPiHarness {
+		data.Patchbay = patchbayCost(
+			s.deps.CacheDir, s.deps.CacheDuration, s.now(), s.deps.EnvReader, s.deps.PatchbayClient,
+		)
+		if data.Patchbay.Status == patchbayAvailable || data.Patchbay.Status == patchbayError {
+			return data
+		}
 	}
 
 	// Transcript-derived session+daily cost. Only attempted when stdin

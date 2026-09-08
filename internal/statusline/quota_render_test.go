@@ -3,7 +3,9 @@ package statusline
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"math"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -74,6 +76,51 @@ func basePiQuotaInput(now time.Time) Input {
 	input.Workspace.ProjectDir = scenarioProjectDir
 	input.ContextWindow.UsedPercentage = 42
 	return input
+}
+
+func TestPiStatuslineRenderingDoesNotCallPatchbayTransport(t *testing.T) {
+	for _, harness := range []string{"pi", "claude-code"} {
+		t.Run(harness, func(t *testing.T) {
+			now := scenarioFixedNow()
+			deps := piQuotaDeps(200, now)
+			deps.CacheDir = t.TempDir() // New empty cache: no usable Patchbay snapshot.
+			deps.CacheDuration = 20 * time.Second
+			deps.EnvReader = patchbayEnv("http://127.0.0.1:1", writePatchbayKey(t))
+			calls := 0
+			deps.PatchbayClient = &http.Client{
+				Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+					calls++
+					if req.Header.Get(patchbayCallerKeyHeader) != "caller-key" {
+						t.Error("synthetic caller key missing")
+					}
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Header:     make(http.Header),
+						Body: io.NopCloser(strings.NewReader(
+							patchbaySummaryJSON(1000000000, 0),
+						)),
+						Request: req,
+					}, nil
+				}),
+			}
+			input := basePiQuotaInput(now)
+			input.Harness = harness
+			rendered := stripAnsi(generatePiQuota(t, input, deps))
+			if harness == "pi" {
+				for _, want := range []string{"5h", "75%", "7d", "20%"} {
+					if !strings.Contains(rendered, want) {
+						t.Errorf("Pi quota missing %q from %q", want, rendered)
+					}
+				}
+				if calls != 0 {
+					t.Errorf("Pi footer transport calls = %d, want 0", calls)
+				}
+			} else if calls != 1 {
+				t.Errorf("Claude accounting control transport calls = %d, want 1", calls)
+			}
+			t.Logf("harness=%s transport_calls=%d", harness, calls)
+		})
+	}
 }
 
 func TestPiQuotaGenerateRequiresExactScope(t *testing.T) {
