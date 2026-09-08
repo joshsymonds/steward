@@ -525,7 +525,7 @@ func TestScanTranscriptAssistantIdentity(t *testing.T) {
 			wantReliable:  true,
 		},
 		{
-			name: "non-assistant rows do not replace identity",
+			name: "newer user invalidates identity but preserves cached assistant metadata",
 			transcript: `{"type":"assistant","uuid":"uuid-1","message":{"id":"msg-1","role":"assistant","content":[{"type":"text","text":"kept"}]}}` + "\n" +
 				`{"type":"user","uuid":"user-uuid","message":{"id":"user-msg","role":"user","content":"hello there"}}` + "\n" +
 				`{"type":"attachment","uuid":"attachment-uuid","attachment":{}}` + "\n" +
@@ -535,7 +535,36 @@ func TestScanTranscriptAssistantIdentity(t *testing.T) {
 			wantMessageID: "msg-1",
 			wantText:      "kept",
 			wantUserTurns: 1,
+		},
+		{
+			name: "metadata-only tail preserves terminal assistant identity",
+			transcript: `{"type":"assistant","uuid":"uuid-1","message":{"id":"msg-1","role":"assistant","content":[{"type":"text","text":"kept"}]}}` + "\n" +
+				`{"type":"attachment","uuid":"attachment-uuid","attachment":{}}` + "\n" +
+				`{"type":"system","uuid":"system-uuid","message":{"id":"system-msg","role":"system","content":"notice"}}` + "\n" +
+				`{"type":"progress","uuid":"message-less"}` + "\n",
+			wantUUID:      "uuid-1",
+			wantMessageID: "msg-1",
+			wantText:      "kept",
 			wantReliable:  true,
+		},
+		{
+			name: "next assistant restores identity after newer user",
+			transcript: `{"type":"assistant","uuid":"old-uuid","message":{"id":"old-msg","role":"assistant","content":[{"type":"text","text":"old"}]}}` + "\n" +
+				`{"type":"user","message":{"role":"user","content":"next question"}}` + "\n" +
+				`{"type":"assistant","uuid":"new-uuid","message":{"id":"new-msg","role":"assistant","content":[{"type":"text","text":"new"}]}}` + "\n",
+			wantUUID:      "new-uuid",
+			wantMessageID: "new-msg",
+			wantText:      "new",
+			wantUserTurns: 1,
+			wantReliable:  true,
+		},
+		{
+			name: "tool-result user tail invalidates identity",
+			transcript: `{"type":"assistant","uuid":"uuid-1","message":{"id":"msg-1","role":"assistant","content":[{"type":"text","text":"kept"}]}}` + "\n" +
+				`{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tool-1","content":"done"}]}}` + "\n",
+			wantUUID:      "uuid-1",
+			wantMessageID: "msg-1",
+			wantText:      "kept",
 		},
 		{
 			name: "missing uuid independently clears",

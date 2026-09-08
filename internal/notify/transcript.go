@@ -486,6 +486,7 @@ func (s *scanState) processLine(line []byte) {
 		}
 		s.processAssistantMessage(rec.Message.Content)
 	case "user":
+		s.assistantIdentityReliable = false
 		s.processUserMessage(rec.Message.Content, rec.ToolUseResult, rec.Timestamp)
 		// message.content decodes as a plain string for human-typed text,
 		// task-notifications, and teammate relays alike — decode it exactly

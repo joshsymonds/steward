@@ -66,6 +66,26 @@ func TestPrepareEventClaudeStopDegradesWithoutReliableIdentity(t *testing.T) {
 	}
 }
 
+func TestPrepareEventClaudeStopRejectsAssistantBeforeNewerUser(t *testing.T) {
+	path := writeTranscript(
+		t,
+		`{"type":"user","message":{"role":"user","content":"old question"}}`,
+		`{"type":"assistant","uuid":"old-assistant","message":{"id":"old-message","role":"assistant","content":[{"type":"text","text":"old answer"}]}}`,
+		`{"type":"user","message":{"role":"user","content":"new question"}}`,
+	)
+	prepared, err := PrepareEvent(HookInput{
+		Harness: harnessClaude, SessionID: "session", CompletionID: "stale-hook-id",
+		CWD: "/work/project", HookEventName: eventStop, TranscriptPath: path,
+		LastAssistantMessage: "new answer",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prepared.CompletionID != "" || prepared.User != "" || prepared.Assistant != "new answer" {
+		t.Fatalf("stale transcript assistant was accepted: %+v", prepared)
+	}
+}
+
 func TestPrepareEventImplicitClaudeUsesNormalizedSourceForIdentity(t *testing.T) {
 	for _, tt := range []struct {
 		name         string

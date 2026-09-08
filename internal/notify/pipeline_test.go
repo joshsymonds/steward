@@ -363,6 +363,61 @@ func TestPipelineClaudeIdentityDegradationSkipsCompositionAndClearsStaleID(t *te
 	}
 }
 
+func TestPipelineClaudeStalePrefixFallsBackDespitePriorAssistantClaim(t *testing.T) {
+	server, requests := captureNotificationServer(t)
+	defer server.Close()
+	pipeline, logPath := testPipeline(t, server, panicComposer{})
+	path := writeTranscript(
+		t,
+		`{"type":"user","message":{"role":"user","content":"old question"}}`,
+		`{"type":"assistant","uuid":"old-assistant","message":{"id":"old-message","role":"assistant","content":[{"type":"text","text":"old answer"}]}}`,
+		`{"type":"user","message":{"role":"user","content":"new question"}}`,
+	)
+
+	claims := newClaimStore(nil)
+	oldKey := claimKey{
+		Harness:      harnessClaude,
+		SessionID:    "session",
+		Kind:         eventKindCompletion,
+		CompletionID: "old-assistant",
+	}
+	oldToken, admitted := claims.claim(oldKey)
+	if !admitted {
+		t.Fatal("prior assistant claim rejected")
+	}
+	claims.finish(oldKey, oldToken, true)
+
+	prepared, err := PrepareEvent(HookInput{
+		Harness: harnessClaude, SessionID: "session", CompletionID: "stale-hook-id",
+		CWD: "/work/project", HookEventName: eventStop, TranscriptPath: path,
+		LastAssistantMessage: "new answer",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	running := startTestDaemon(t, Daemon{Pipeline: pipeline, claims: claims})
+	oldFrame := Frame{Event: prepared, Workspace: "earth:3"}
+	oldFrame.Event.CompletionID = oldKey.CompletionID
+	requireFrameAck(t, running.socket, oldFrame, ackStatusDuplicate)
+	requireFrameAck(
+		t,
+		running.socket,
+		Frame{Event: prepared, Workspace: "earth:3"},
+		ackStatusAccepted,
+	)
+	if request := waitNotification(t, requests); request.Body != "new answer" {
+		t.Fatalf("request = %+v, want current hook fallback", request)
+	}
+	record := waitForDecisionRecords(t, logPath, 1)[0]
+	if prepared.CompletionID != "" {
+		t.Fatalf("CompletionID = %q, want no stale identity", prepared.CompletionID)
+	}
+	if record.CompletionID != "" || record.CompositionOutcome != compositionFallback ||
+		record.CompositionError != compositionErrorIdentityUnavailable {
+		t.Fatalf("record = %+v, want unattributed identity-unavailable fallback", record)
+	}
+}
+
 func TestPipelineGoalActiveSuppressesBeforeIdentityDegradation(t *testing.T) {
 	server, requests := captureNotificationServer(t)
 	defer server.Close()
