@@ -244,10 +244,13 @@ func runNotifydCommand() {
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer stop()
-
-	if serveErr := d.Serve(ctx, ln); serveErr != nil {
+	serveErr := d.Serve(ctx, ln)
+	stop()
+	if serveErr != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "steward notifyd: %v\n", serveErr)
 	}
 	_ = os.Remove(sockPath)
+	if serveErr != nil {
+		os.Exit(1)
+	}
 }
