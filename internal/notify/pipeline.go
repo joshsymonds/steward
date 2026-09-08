@@ -40,8 +40,9 @@ const (
 	compositionErrorInvalidResult        = "invalid compose result"
 	compositionErrorFailed               = "composition failed"
 
-	deliveryTimeout       = 11 * time.Second
-	deliveryFailureReason = "send failed"
+	deliveryTimeout              = 11 * time.Second
+	deliveryFailureReason        = "send failed"
+	decisionLogFailureDiagnostic = "steward: decision log append failed"
 )
 
 // Composer is the sole inference seam used by Pipeline. PiComposer is the
@@ -426,7 +427,9 @@ func (pipeline Pipeline) logRecord(event PreparedEvent, now time.Time, record De
 	record.Event = event.SourceEvent
 	record.Harness = event.Harness
 	record.CompletionID = event.CompletionID
-	_ = pipeline.Log.Append(record)
+	if err := pipeline.Log.Append(record); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, decisionLogFailureDiagnostic)
+	}
 }
 
 func completionFallbackBody(raw string) string {

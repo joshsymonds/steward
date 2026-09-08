@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -542,6 +543,73 @@ func TestPipelineDeliveryFailureLogIsObservableAndSecretSafe(t *testing.T) {
 		if strings.Contains(string(wire), secret) {
 			t.Fatalf("decision log leaked %q: %s", secret, wire)
 		}
+	}
+}
+
+func TestPipelineDecisionLogFailureIsObservableWithoutChangingDelivery(t *testing.T) {
+	const diagnostic = "steward: decision log append failed\n"
+	for _, mode := range []string{"failed-send", "successful-send", "writable-log"} {
+		t.Run(mode, func(t *testing.T) {
+			command := exec.Command(os.Args[0], "-test.run=^TestPipelineDecisionLogDiagnosticHelper$")
+			command.Env = append(os.Environ(), "STEWARD_LOG_DIAGNOSTIC_HELPER="+mode)
+			stderr := new(bytes.Buffer)
+			command.Stderr = stderr
+			if err := command.Run(); err != nil {
+				t.Fatalf("helper failed: %v; stderr = %q", err, stderr)
+			}
+			want := diagnostic
+			if mode == "writable-log" {
+				want = ""
+			}
+			if stderr.String() != want {
+				t.Fatalf("stderr = %q, want fixed safe diagnostic %q", stderr.String(), want)
+			}
+		})
+	}
+}
+
+func TestPipelineDecisionLogDiagnosticHelper(t *testing.T) {
+	mode := os.Getenv("STEWARD_LOG_DIAGNOSTIC_HELPER")
+	if mode == "" {
+		return
+	}
+	attempts := 0
+	statusCode := http.StatusOK
+	if mode == "failed-send" {
+		statusCode = http.StatusBadRequest
+	}
+	client := &http.Client{Transport: pipelineRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		attempts++
+		return &http.Response{
+			StatusCode: statusCode,
+			Body:       io.NopCloser(strings.NewReader("response must not be logged")),
+			Header:     make(http.Header),
+		}, nil
+	})}
+	logPath := filepath.Join(t.TempDir(), "decisions.jsonl")
+	if mode != "writable-log" {
+		parent := filepath.Join(t.TempDir(), "regular-file")
+		if err := os.WriteFile(parent, []byte("not a directory"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		logPath = filepath.Join(parent, "decisions.jsonl")
+	}
+	pipeline := Pipeline{
+		Sender: Sender{URL: "https://secret.invalid/private", Token: "secret", Client: client},
+		Log:    DecisionLog{Path: logPath},
+	}
+	if err := pipeline.Run(context.Background(), HookInput{
+		Harness: harnessClaude, SessionID: "log-diagnostic", CWD: "/work/project",
+		HookEventName: eventNotification, NotificationType: "permission_prompt",
+		Message: "allow command?",
+	}); err != nil {
+		t.Fatalf("Run() error = %v, want fail-open", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("delivery attempts = %d, want outcome preserved without resend", attempts)
+	}
+	if mode == "writable-log" && len(readDecisionLog(t, logPath)) != 1 {
+		t.Fatal("writable decision log did not retain record")
 	}
 }
 
