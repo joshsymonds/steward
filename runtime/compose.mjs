@@ -1,6 +1,7 @@
 const encoder = new TextEncoder();
 const thinkingLevels = new Set(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 const controls = /[\u0000-\u001f\u007f-\u009f]/u;
+const bidiControls = /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u;
 const maximumWireBytes = 4096;
 const maximumTextSignatureLength = 512;
 const markdownPatterns = [
@@ -36,7 +37,8 @@ function bytes(value) {
 
 /** @param {string} value */
 function plain(value) {
-  return !controls.test(value) && !markdownPatterns.some((pattern) => pattern.test(value));
+  return !controls.test(value) && !bidiControls.test(value)
+    && !markdownPatterns.some((pattern) => pattern.test(value));
 }
 
 /** @param {unknown} value @param {string[]} keys */

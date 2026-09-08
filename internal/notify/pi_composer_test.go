@@ -686,6 +686,63 @@ func TestPiComposer_ComposeStrictlyRejectsMalformedAndConflictingResults(t *test
 	}
 }
 
+func TestPiComposer_ComposeRejectsEveryBidiControlInGeneratedOutput(t *testing.T) {
+	bidiControls := []rune{
+		'\u061c', '\u200e', '\u200f',
+		'\u202a', '\u202b', '\u202c', '\u202d', '\u202e',
+		'\u2066', '\u2067', '\u2068', '\u2069',
+	}
+	for _, control := range bidiControls {
+		for _, output := range []string{
+			piSuccess("Safe"+string(control)+" outcome", pointerTo("Three safe words")),
+			piSuccess("Safe outcome", pointerTo("Three"+string(control)+" safe words")),
+		} {
+			helper := writePiHelper(t)
+			setPiOutput(t, output)
+			composer := PiComposer{
+				Bin: helper, Model: ComposeModel{Provider: "provider", ID: "model", Thinking: "low"},
+			}
+			got, err := composer.Compose(context.Background(), ComposeInput{}, ComposeLabel{Refresh: true})
+			assertPiFailure(t, got, err)
+		}
+	}
+}
+
+func TestPiComposer_PipelineRejectsBidiOutputWithoutPersistingGeneratedLabel(t *testing.T) {
+	helper := writePiHelper(t)
+	setPiOutput(t, piSuccess("Reordered\u202e body", pointerTo("Unsafe generated label")))
+	composer := &PiComposer{
+		Bin: helper, Model: ComposeModel{Provider: "provider", ID: "model", Thinking: "low"},
+	}
+	server, requests := captureNotificationServer(t)
+	defer server.Close()
+	pipeline, logPath := testPipeline(t, server, composer)
+	stateBase := t.TempDir()
+	pipeline.LabelStore = NewLabelStore(stateBase)
+
+	event := preparedCompletion(
+		harnessPi, "bidi-session", "completion-1", "/work/fallback-project", "user", "assistant result",
+	)
+	if err := pipeline.RunPrepared(context.Background(), event); err != nil {
+		t.Fatal(err)
+	}
+	notification := waitNotification(t, requests)
+	if notification.Body != "assistant result" || notification.Title != "fallback-project · earth:3" {
+		t.Errorf("notification = %+v, want deterministic fallback without generated label", notification)
+	}
+	label, err := pipeline.LabelStore.lookupLabel(harnessPi, "bidi-session")
+	if err != nil {
+		t.Fatalf("lookupLabel() error = %v", err)
+	}
+	if label != "" {
+		t.Errorf("persisted label = %q, want empty", label)
+	}
+	record := readDecisionLog(t, logPath)[0]
+	if record.CompositionOutcome != compositionFallback || record.CompositionError != compositionErrorInvalidProtocol {
+		t.Errorf("record = %+v, want invalid-protocol fallback", record)
+	}
+}
+
 func TestPiComposer_ComposeAcceptsPlainTextBoundaries(t *testing.T) {
 	body := strings.Repeat("月", 180)
 	label := "One two " + strings.Repeat("x", 52)
@@ -704,6 +761,17 @@ func TestPiComposer_ComposeAcceptsPlainTextBoundaries(t *testing.T) {
 	}
 	if got != (ComposeResult{Body: body, Label: label}) {
 		t.Errorf("Compose() = %+v, want boundary output preserved", got)
+	}
+
+	body = "Café 👩‍💻 completed successfully."
+	label = "Café 👩‍💻 result"
+	setPiOutput(t, piSuccess(body, &label))
+	got, err = composer.Compose(context.Background(), ComposeInput{}, ComposeLabel{Refresh: true})
+	if err != nil {
+		t.Fatalf("Compose() ordinary Unicode error = %v", err)
+	}
+	if got != (ComposeResult{Body: body, Label: label}) {
+		t.Errorf("Compose() = %+v, want ordinary Unicode preserved", got)
 	}
 
 	body = "Version ~1 keeps task~id and unmatched~~ punctuation."

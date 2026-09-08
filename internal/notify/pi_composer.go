@@ -533,7 +533,7 @@ func validPiGeneratedLabel(value string) bool {
 }
 
 func validPiPlainText(value string) bool {
-	return utf8.ValidString(value) && !containsPiControl(value) &&
+	return utf8.ValidString(value) && !containsPiControl(value) && !containsPiBidiControl(value) &&
 		!piMarkdownFencePattern.MatchString(value) &&
 		!piMarkdownInlineCodePattern.MatchString(value) &&
 		!piMarkdownBlockStartPattern.MatchString(value) &&
@@ -554,6 +554,17 @@ func isPiWhitespace(character rune) bool {
 func containsPiControl(value string) bool {
 	for _, character := range value {
 		if character <= '\u001f' || (character >= '\u007f' && character <= '\u009f') {
+			return true
+		}
+	}
+	return false
+}
+
+func containsPiBidiControl(value string) bool {
+	for _, character := range value {
+		if character == '\u061c' || character == '\u200e' || character == '\u200f' ||
+			(character >= '\u202a' && character <= '\u202e') ||
+			(character >= '\u2066' && character <= '\u2069') {
 			return true
 		}
 	}

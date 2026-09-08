@@ -259,6 +259,31 @@ test('rejects trim-empty bodies and specified Markdown in bodies and labels', as
   }
 });
 
+test('rejects every Unicode bidi control in generated bodies and labels while accepting ordinary Unicode', async () => {
+  const bidiControls = [
+    '\u061c', '\u200e', '\u200f',
+    '\u202a', '\u202b', '\u202c', '\u202d', '\u202e',
+    '\u2066', '\u2067', '\u2068', '\u2069',
+  ];
+  for (const control of bidiControls) {
+    assert.deepEqual(
+      await composeText(JSON.stringify({ body: `Safe${control} outcome`, label: 'Three safe words' })),
+      { version: 1, ok: false, error: 'invalid_output' },
+      `body U+${control.codePointAt(0)?.toString(16)}`,
+    );
+    assert.deepEqual(
+      await composeText(JSON.stringify({ body: 'Safe outcome', label: `Three${control} safe words` })),
+      { version: 1, ok: false, error: 'invalid_output' },
+      `label U+${control.codePointAt(0)?.toString(16)}`,
+    );
+  }
+
+  assert.deepEqual(
+    await composeText(JSON.stringify({ body: 'Café 👩‍💻 completed', label: 'Café 👩‍💻 result' })),
+    { version: 1, ok: true, body: 'Café 👩‍💻 completed', label: 'Café 👩‍💻 result' },
+  );
+});
+
 test('enforces body code-point and label word/UTF-8 boundaries and the wire limit', async () => {
   const body180 = '😀'.repeat(180);
   const body181 = '😀'.repeat(181);
