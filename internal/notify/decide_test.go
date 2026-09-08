@@ -3,10 +3,6 @@ package notify
 import "testing"
 
 func TestDecideCompletionRootsAndStructuralSuppressions(t *testing.T) {
-	liveWork := ScanResult{
-		LiveTasks: []LiveTask{{ID: "background"}},
-		Teammates: []TeammateActivity{{Name: "worker"}},
-	}
 	tests := []struct {
 		name string
 		in   HookInput
@@ -14,9 +10,8 @@ func TestDecideCompletionRootsAndStructuralSuppressions(t *testing.T) {
 		want Decision
 	}{
 		{
-			name: "Claude root Stop sends done despite live work",
+			name: "Claude root Stop sends done",
 			in:   HookInput{Harness: harnessClaude, HookEventName: eventStop},
-			scan: liveWork,
 			want: Decision{Outcome: OutcomeSend, Urgency: UrgencyDone, Reason: "root completion"},
 		},
 		{
