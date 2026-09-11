@@ -420,14 +420,14 @@ export async function runProbe() {
         accessorPaths.size === 1 &&
         accessorPaths.has(realpathSync(nativeChildContext.childContextPath)),
       activePiSdkAiTuiGraphShared:
-        codingFromProbe.version === "0.85.0" &&
-        codingFromSubagents.version === "0.85.0" &&
+        codingFromProbe.version === "0.85.1" &&
+        codingFromSubagents.version === "0.85.1" &&
         codingFromProbe.manifestPath === codingFromSubagents.manifestPath &&
-        aiFromSdk.version === "0.85.0" &&
-        aiFromSubagents.version === "0.85.0" &&
+        aiFromSdk.version === "0.85.1" &&
+        aiFromSubagents.version === "0.85.1" &&
         aiFromSdk.manifestPath === aiFromSubagents.manifestPath &&
-        tuiFromSdk.version === "0.85.0" &&
-        tuiFromSubagents.version === "0.85.0" &&
+        tuiFromSdk.version === "0.85.1" &&
+        tuiFromSubagents.version === "0.85.1" &&
         tuiFromSdk.manifestPath === tuiFromSubagents.manifestPath,
       rootAgentToolRegistered: rootTools.includes("Agent"),
       childAgentToolAbsent: !childAllTools.includes("Agent"),

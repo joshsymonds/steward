@@ -298,18 +298,18 @@ test("installed SDK and subagents resolve one physical Pi peer graph", () => {
 test("manifest and lock pin one compatible active Pi graph", async () => {
   const manifest = recordProperty(await readJson(join(REPOSITORY_ROOT, "package.json")), "manifest");
   const dependencies = recordProperty(manifest.dependencies, "dependencies");
-  assert.equal(dependencies["@earendil-works/pi-coding-agent"], "0.85.0");
-  assert.equal(dependencies["@earendil-works/pi-server"], "0.85.0");
-  assert.equal(dependencies["@earendil-works/pi-ai"], "0.85.0");
-  assert.equal(dependencies["@earendil-works/pi-tui"], "0.85.0");
+  assert.equal(dependencies["@earendil-works/pi-coding-agent"], "0.85.1");
+  assert.equal(dependencies["@earendil-works/pi-server"], "0.85.1");
+  assert.equal(dependencies["@earendil-works/pi-ai"], "0.85.1");
+  assert.equal(dependencies["@earendil-works/pi-tui"], "0.85.1");
   assert.equal(dependencies["@tintinweb/pi-subagents"], "0.19.0");
 
   const lock = recordProperty(await readJson(join(REPOSITORY_ROOT, "package-lock.json")), "lock");
   const packages = recordProperty(lock.packages, "lock packages");
   const expectedVersions = new Map([
-    ["node_modules/@earendil-works/pi-ai", "0.85.0"],
-    ["node_modules/@earendil-works/pi-coding-agent", "0.85.0"],
-    ["node_modules/@earendil-works/pi-tui", "0.85.0"],
+    ["node_modules/@earendil-works/pi-ai", "0.85.1"],
+    ["node_modules/@earendil-works/pi-coding-agent", "0.85.1"],
+    ["node_modules/@earendil-works/pi-tui", "0.85.1"],
     ["node_modules/@tintinweb/pi-subagents", "0.19.0"],
   ]);
   for (const [packagePath, version] of expectedVersions) {

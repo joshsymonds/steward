@@ -1,6 +1,6 @@
 # Pi child-context coupling
 
-Steward's Pi root/child boundary depends on `@tintinweb/pi-subagents` **0.19.0** and Pi **0.85.0**. The dependency is intentionally exact: child classification is valid only when Steward and pi-subagents observe the same native `dist/child-context.js` module and therefore the same `AsyncLocalStorage` instance.
+Steward's Pi root/child boundary depends on `@tintinweb/pi-subagents` **0.19.0** and Pi **0.85.1**. The dependency is intentionally exact: child classification is valid only when Steward and pi-subagents observe the same native `dist/child-context.js` module and therefore the same `AsyncLocalStorage` instance.
 
 ## Extension installation
 
@@ -25,11 +25,11 @@ The classifier resolves the same installed package and loads its compiled `dist/
 
 The wrapper's native package graph must bind these pi-subagents peers to the physical Pi runtime used by the parent TUI:
 
-- `@earendil-works/pi-coding-agent` 0.85.0
-- `@earendil-works/pi-ai` 0.85.0
-- `@earendil-works/pi-tui` 0.85.0
+- `@earendil-works/pi-coding-agent` 0.85.1
+- `@earendil-works/pi-ai` 0.85.1
+- `@earendil-works/pi-tui` 0.85.1
 
-Matching version strings are not enough. Loading another physical SDK, AI, or TUI copy in the same process can split module identity. The published coding-agent package carries a shrinkwrap that initially installs nested AI and TUI copies. Steward's exact root pins and lock provide the shared copies. The owned `prepare:pi-runtime` package-preparation step validates the root SDK and peers at 0.85.0, validates any generated nested copies, and then removes only those two exact shrinkwrapped duplicates so coding-agent and pi-subagents both resolve the root manifests. Normal installs invoke the same step from `postinstall`.
+Matching version strings are not enough. Loading another physical SDK, AI, or TUI copy in the same process can split module identity. The published coding-agent package carries a shrinkwrap that initially installs nested AI and TUI copies. Steward's exact root pins and lock provide the shared copies. The owned `prepare:pi-runtime` package-preparation step validates the root SDK and peers at 0.85.1, validates any generated nested copies, and then removes only those two exact shrinkwrapped duplicates so coding-agent and pi-subagents both resolve the root manifests. Normal installs invoke the same step from `postinstall`.
 
 An install performed with `npm ci --ignore-scripts` intentionally leaves the raw generated graph unaligned. Run `npm run prepare:pi-runtime` explicitly before tests or packaging; CI keeps lifecycle hooks disabled and runs this narrowly scoped preparation as its next Node step. Invalid, missing, corrupt, or symlinked package paths fail preparation rather than being silently pruned.
 

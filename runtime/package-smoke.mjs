@@ -122,7 +122,7 @@ function main() {
       PI_TELEMETRY: "0",
     };
     const piEnvironment = { ...environment, STEWARD_PACKAGE_SMOKE_ENTRY_MARKER: entryMarker, NODE_OPTIONS: `--import ${entryObserver}` };
-    assert.match(run(defaultPi, ["--version"], piEnvironment, root), /0\.85\.0/);
+    assert.match(run(defaultPi, ["--version"], piEnvironment, root), /0\.85\.1/);
     const executed = readEntryMarker(entryMarker);
     assert.notEqual(realpathSync(executed.entry), realpathSync(join(runtimeModules, "@earendil-works", "pi-coding-agent", "dist", "bundle", "cli.js")), "Pi wrapper executed the bundled Pi entry");
     assert.equal(realpathSync(executed.entry), realpathSync(runtimeTuiEntry), "Pi wrapper did not execute the unbundled Pi entry");

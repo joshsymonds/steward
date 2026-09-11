@@ -49,7 +49,7 @@ service, environment, and secret-file wiring. The release must also update:
 - `home-manager/starship/default.nix`
 - `home-manager/statusline-aliases/default.nix`
 
-Packaging now physically pins the helper and extension to the same Pi 0.85.0 /
+Packaging now physically pins the helper and extension to the same Pi 0.85.1 /
 subagents 0.19.0 peer dependency graph with a minimal `PATH`; see
 [packaging](packaging.md). The source adapter includes the root-TUI consumer for
 the daemon's existing `session-metadata` labels: it uses supported native Pi

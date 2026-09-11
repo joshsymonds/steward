@@ -5,7 +5,7 @@ pkgs.buildNpmPackage (finalAttrs: {
   inherit version;
   src = ../.;
   nodejs = pkgs.nodejs_24;
-  npmDepsHash = "sha256-pO+Q1UYzbPcZeYzqNc6lyj8Xj/o/QVEbMeAbmLxNDAQ=";
+  npmDepsHash = "sha256-MKroxqt7+8a9Uo0exMiCBG9pOlR/Wq/udmm35Yfxqa0=";
   npmDepsFetcherVersion = 2;
   npmFlags = [ "--ignore-scripts" ];
   dontBuild = true;

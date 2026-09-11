@@ -58,11 +58,11 @@ async function createRuntimeFixture() {
   await mkdir(dirname(runtimePath), { recursive: true });
   await copyFile(PREPARATION_PATH, runtimePath);
   await Promise.all([
-    writeManifest(codingRoot, "@earendil-works/pi-coding-agent", "0.85.0"),
-    writeManifest(rootAi, "@earendil-works/pi-ai", "0.85.0"),
-    writeManifest(rootTui, "@earendil-works/pi-tui", "0.85.0"),
-    writeManifest(nestedAi, "@earendil-works/pi-ai", "0.85.0"),
-    writeManifest(nestedTui, "@earendil-works/pi-tui", "0.85.0"),
+    writeManifest(codingRoot, "@earendil-works/pi-coding-agent", "0.85.1"),
+    writeManifest(rootAi, "@earendil-works/pi-ai", "0.85.1"),
+    writeManifest(rootTui, "@earendil-works/pi-tui", "0.85.1"),
+    writeManifest(nestedAi, "@earendil-works/pi-ai", "0.85.1"),
+    writeManifest(nestedTui, "@earendil-works/pi-tui", "0.85.1"),
     mkdir(dirname(nestedNeighbor), { recursive: true }).then(() =>
       writeFile(nestedNeighbor, "nested neighbor\n", "utf8"),
     ),
@@ -218,9 +218,9 @@ test("missing or wrong required root packages fail before generated copies are r
     },
     {
       name: "wrong SDK pin",
-      detail: "@earendil-works/pi-coding-agent.*0\\.85\\.0",
+      detail: "@earendil-works/pi-coding-agent.*0\\.85\\.1",
       alter: async (fixture) =>
-        writeManifest(fixture.codingRoot, "@earendil-works/pi-coding-agent", "0.85.1"),
+        writeManifest(fixture.codingRoot, "@earendil-works/pi-coding-agent", "0.85.0"),
     },
     {
       name: "missing root AI",
@@ -229,8 +229,8 @@ test("missing or wrong required root packages fail before generated copies are r
     },
     {
       name: "wrong root AI pin",
-      detail: "root @earendil-works/pi-ai.*0\\.85\\.0",
-      alter: async (fixture) => writeManifest(fixture.rootAi, "@earendil-works/pi-ai", "0.85.1"),
+      detail: "root @earendil-works/pi-ai.*0\\.85\\.1",
+      alter: async (fixture) => writeManifest(fixture.rootAi, "@earendil-works/pi-ai", "0.85.0"),
     },
     {
       name: "missing root TUI",
@@ -239,8 +239,8 @@ test("missing or wrong required root packages fail before generated copies are r
     },
     {
       name: "wrong root TUI pin",
-      detail: "root @earendil-works/pi-tui.*0\\.85\\.0",
-      alter: async (fixture) => writeManifest(fixture.rootTui, "@earendil-works/pi-tui", "0.85.1"),
+      detail: "root @earendil-works/pi-tui.*0\\.85\\.1",
+      alter: async (fixture) => writeManifest(fixture.rootTui, "@earendil-works/pi-tui", "0.85.0"),
     },
   ];
 
@@ -257,10 +257,10 @@ test("missing or wrong required root packages fail before generated copies are r
 
 test("invalid generated manifests fail without partially pruning the pair", async (t) => {
   const cases = [
-    ["wrong nested AI pin", "pi-ai.*0\\.85\\.0", "ai", "@earendil-works/pi-ai", "0.85.1"],
-    ["wrong nested TUI pin", "pi-tui.*0\\.85\\.0", "tui", "@earendil-works/pi-tui", "0.85.1"],
-    ["wrong nested AI name", "pi-ai", "ai", "@earendil-works/different-ai", "0.85.0"],
-    ["wrong nested TUI name", "pi-tui", "tui", "@earendil-works/different-tui", "0.85.0"],
+    ["wrong nested AI pin", "pi-ai.*0\\.85\\.1", "ai", "@earendil-works/pi-ai", "0.85.0"],
+    ["wrong nested TUI pin", "pi-tui.*0\\.85\\.1", "tui", "@earendil-works/pi-tui", "0.85.0"],
+    ["wrong nested AI name", "pi-ai", "ai", "@earendil-works/different-ai", "0.85.1"],
+    ["wrong nested TUI name", "pi-tui", "tui", "@earendil-works/different-tui", "0.85.1"],
   ];
 
   for (const [scenario, detail, targetKind, manifestName, version] of cases) {
@@ -296,7 +296,7 @@ test("symlinked deletion targets and package ancestry are rejected without mutat
     const fixture = await createRuntimeFixture();
     t.after(() => rm(fixture.root, { force: true, recursive: true }));
     const external = join(fixture.root, "external-pi-tui");
-    await writeManifest(external, "@earendil-works/pi-tui", "0.85.0");
+    await writeManifest(external, "@earendil-works/pi-tui", "0.85.1");
     await writeFile(join(external, "keep.txt"), "external\n", "utf8");
     await rm(fixture.nestedTui, { recursive: true });
     await symlink(external, fixture.nestedTui, "dir");

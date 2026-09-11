@@ -3,7 +3,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-const PI_VERSION = "0.85.0";
+const PI_VERSION = "0.85.1";
 const FAILURE_PREFIX = "Steward Pi runtime preparation failed:";
 const REPOSITORY_ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), ".."));
 const NODE_MODULES = join(REPOSITORY_ROOT, "node_modules");

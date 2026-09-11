@@ -53,9 +53,11 @@ provider handles after the result is delivered.
 
 ## Packaging workaround
 
-Pi coding-agent 0.85.0 publicly imports `@earendil-works/pi-server` but omits it
-from its published manifest. This package declares the exact `0.85.0` server
-package solely to repair that import closure. It does not start a server or use
-Pi internal runtime APIs. The Nix runtime exposes this entry as
+Pi coding-agent 0.85.0 publicly imported `@earendil-works/pi-server` while
+omitting it from its published manifest; 0.85.1 made the server and client
+commands source-only and no longer imports it. This package still declares the
+exact `0.85.1` server package, pinned in lockstep with the other Pi packages,
+but nothing in the helper or the coding-agent build imports it any more. It does
+not start a server or use Pi internal runtime APIs. The Nix runtime exposes this entry as
 `steward-pi-helper`, an absolute Node 24 wrapper; its package smoke coverage is
 documented in [Nix packaging](packaging.md).
