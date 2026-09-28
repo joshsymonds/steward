@@ -36,9 +36,29 @@ func canonicalPiPayload(assistant string) string {
 	return string(wire)
 }
 
+// socketTempDir returns a private directory short enough to bind a Unix
+// socket in. macOS caps sun_path at 104 bytes, and t.TempDir() nests the
+// test name under TMPDIR, which the Nix Darwin builder already sets to
+// /nix/var/nix/builds/nix-<pid>-<n>.
+func socketTempDir(t *testing.T) string {
+	t.Helper()
+	directory, err := makeSocketDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	return directory
+}
+
+// makeSocketDir stays free of *testing.T, like makeNotifydRuntimeDir: the
+// t.TempDir() that usetesting suggests is the path that overflows.
+func makeSocketDir() (string, error) {
+	return os.MkdirTemp("", "sw")
+}
+
 func startAckSocket(t *testing.T, handler func(net.Conn, notify.Frame)) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "notifyd.sock")
+	path := filepath.Join(socketTempDir(t), "notifyd.sock")
 	listener, err := net.Listen("unix", path)
 	if err != nil {
 		t.Fatal(err)
@@ -311,7 +331,7 @@ func TestDispatchNotifyInlineAndDryRunNeverInvokePiHelper(t *testing.T) {
 	for _, dryRun := range []bool{false, true} {
 		t.Run(map[bool]string{false: "outage", true: "dry-run"}[dryRun], func(t *testing.T) {
 			sender, calls, _ := fallbackServer(t)
-			cfg := testNotifyClientConfig(t, filepath.Join(t.TempDir(), "missing.sock"))
+			cfg := testNotifyClientConfig(t, filepath.Join(socketTempDir(t), "missing.sock"))
 			cfg.DryRun = dryRun
 			cfg.Sender = sender
 			cfg.Environ = []string{"STEWARD_HELPER_BIN=" + helper}
@@ -341,7 +361,7 @@ func TestDispatchNotifyInlineAndDryRunNeverInvokePiHelper(t *testing.T) {
 }
 
 func TestRunNotifyCommandHarnessFlagPreparesPiFrameAndWaitsForAck(t *testing.T) {
-	runtimeDirectory := t.TempDir()
+	runtimeDirectory := socketTempDir(t)
 	socketPath := filepath.Join(runtimeDirectory, "steward", "notifyd.sock")
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
 		t.Fatal(err)

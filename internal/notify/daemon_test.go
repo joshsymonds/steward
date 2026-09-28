@@ -43,9 +43,29 @@ type runningTestDaemon struct {
 	done   <-chan error
 }
 
+// socketTempDir returns a private directory short enough to bind a Unix
+// socket in. macOS caps sun_path at 104 bytes, and t.TempDir() nests the
+// test name under TMPDIR, which the Nix Darwin builder already sets to
+// /nix/var/nix/builds/nix-<pid>-<n>.
+func socketTempDir(t *testing.T) string {
+	t.Helper()
+	directory, err := makeSocketDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	return directory
+}
+
+// makeSocketDir stays free of *testing.T because the t.TempDir() that
+// usetesting suggests is the path that overflows.
+func makeSocketDir() (string, error) {
+	return os.MkdirTemp("", "sw")
+}
+
 func startTestDaemon(t *testing.T, daemon Daemon) runningTestDaemon {
 	t.Helper()
-	socketPath := filepath.Join(t.TempDir(), "notifyd.sock")
+	socketPath := filepath.Join(socketTempDir(t), "notifyd.sock")
 	listener, err := net.Listen("unix", socketPath)
 	if err != nil {
 		t.Fatal(err)
@@ -848,7 +868,7 @@ func TestDaemonShutdownCancelsCompositionAndDrainsFallback(t *testing.T) {
 	server, requests := captureNotificationServer(t)
 	defer server.Close()
 	entered := make(chan struct{}, 1)
-	listener, err := net.Listen("unix", filepath.Join(t.TempDir(), "notifyd.sock"))
+	listener, err := net.Listen("unix", filepath.Join(socketTempDir(t), "notifyd.sock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -900,7 +920,7 @@ func TestDaemonShutdownDrainRemainsBounded(t *testing.T) {
 	release := make(chan struct{})
 	var releaseOnce sync.Once
 	releaseComposer := func() { releaseOnce.Do(func() { close(release) }) }
-	listener, err := net.Listen("unix", filepath.Join(t.TempDir(), "notifyd.sock"))
+	listener, err := net.Listen("unix", filepath.Join(socketTempDir(t), "notifyd.sock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -987,7 +1007,7 @@ func runListenHelper() {
 
 func TestListenSelfBindCreatesPrivateSocketAndRemovesStaleFile(t *testing.T) {
 	t.Setenv("LISTEN_FDS", "")
-	directory := filepath.Join(t.TempDir(), "notifyd")
+	directory := filepath.Join(socketTempDir(t), "notifyd")
 	if err := os.Mkdir(directory, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -1010,7 +1030,7 @@ func TestListenSelfBindCreatesPrivateSocketAndRemovesStaleFile(t *testing.T) {
 
 func TestListenSelfBindRejectsUnsafeDirectory(t *testing.T) {
 	t.Setenv("LISTEN_FDS", "")
-	directory := filepath.Join(t.TempDir(), "unsafe")
+	directory := filepath.Join(socketTempDir(t), "unsafe")
 	if err := os.Mkdir(directory, 0o777); err != nil {
 		t.Fatal(err)
 	}
@@ -1023,7 +1043,7 @@ func TestListenSelfBindRejectsUnsafeDirectory(t *testing.T) {
 }
 
 func TestListenSystemdSocketActivation(t *testing.T) {
-	socketPath := filepath.Join(t.TempDir(), "systemd.sock")
+	socketPath := filepath.Join(socketTempDir(t), "systemd.sock")
 	listener, err := net.Listen("unix", socketPath)
 	if err != nil {
 		t.Fatal(err)
