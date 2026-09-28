@@ -404,6 +404,66 @@ func TestBillingUnknownModelIsZero(t *testing.T) {
 	assertWithinTolerance(t, got, 0, "unknown model id must never be guessed at, must cost $0")
 }
 
+// TestBillingClaude5Models pins the per-token rates of the Claude 5-family
+// ids an Attain session reports: each one is priced (never the unknown-model
+// $0) on both the bedrock and the unsubscribed list table.
+func TestBillingClaude5Models(t *testing.T) {
+	// rates are USD per token: input, output, cache read, 5m cache write.
+	tests := []struct {
+		model   string
+		list    [4]float64
+		bedrock [4]float64
+	}{
+		{
+			model:   "claude-fable-5-1",
+			list:    [4]float64{0.00001, 0.00005, 0.00000025, 0.0000125},
+			bedrock: [4]float64{0.000011, 0.000055, 0.000000275, 0.00001375},
+		},
+		{
+			model:   "claude-opus-5-5",
+			list:    [4]float64{0.000004, 0.00002, 0.0000002, 0.000005},
+			bedrock: [4]float64{0.0000044, 0.000022, 0.00000022, 0.0000055},
+		},
+		{
+			model:   "claude-opus-5",
+			list:    [4]float64{0.000005, 0.000025, 0.0000005, 0.00000625},
+			bedrock: [4]float64{0.0000055, 0.0000275, 0.00000055, 0.000006875},
+		},
+		{
+			model:   "claude-sonnet-5-5",
+			list:    [4]float64{0.000002, 0.00001, 0.0000002, 0.0000025},
+			bedrock: [4]float64{0.0000022, 0.000011, 0.00000022, 0.00000275},
+		},
+	}
+	const input, output, cacheRead, cacheWrite = 100, 50, 10, 20
+	for _, test := range tests {
+		for _, backend := range []struct {
+			name  string
+			msgID string
+			rates [4]float64
+		}{
+			{name: "bedrock", msgID: "msg_bdrk_01abc", rates: test.bedrock},
+			{name: "list", msgID: "msg_01xyz", rates: test.list},
+		} {
+			t.Run(test.model+"/"+backend.name, func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "session.jsonl")
+				writeJSONL(t, path, []string{buildRow(rowOpts{
+					msgID: backend.msgID, model: test.model,
+					timestamp: "2026-07-06T16:00:00.000Z",
+					input:     input, output: output, cacheRead: cacheRead, cacheWrite: cacheWrite,
+				})})
+				got, err := sessionOnly(t, path, false)
+				if err != nil {
+					t.Fatalf("Costs: unexpected error: %v", err)
+				}
+				r := backend.rates
+				want := input*r[0] + output*r[1] + cacheRead*r[2] + cacheWrite*r[3]
+				assertWithinTolerance(t, got, want, test.model+" "+backend.name+" rates")
+			})
+		}
+	}
+}
+
 // --- Local-date bucketing ---
 
 func TestDailyLocalDateBucketing(t *testing.T) {
