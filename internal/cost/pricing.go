@@ -28,6 +28,9 @@ func (r rates) cost(input, output, cacheRead, cacheCreated int) float64 {
 // this table, which callers must treat as "$0, never guess".
 func listRates(model string) (rates, bool) {
 	switch model {
+	case "claude-fable-5-2":
+		// Cache reads are 0.025x input.
+		return rates{0.000008, 0.00004, 0.0000002, 0.00001}, true
 	case "claude-fable-5-1":
 		// Same tier price as claude-fable-5, but cache reads are 0.025x input.
 		return rates{0.00001, 0.00005, 0.00000025, 0.0000125}, true
@@ -55,6 +58,8 @@ func listRates(model string) (rates, bool) {
 // model id). See listRates for the exact-match-only rationale.
 func bedrockRates(model string) (rates, bool) {
 	switch model {
+	case "claude-fable-5-2":
+		return rates{0.0000088, 0.000044, 0.00000022, 0.000011}, true
 	case "claude-fable-5-1":
 		return rates{0.000011, 0.000055, 0.000000275, 0.00001375}, true
 	case "claude-fable-5":

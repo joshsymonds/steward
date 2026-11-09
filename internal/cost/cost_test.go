@@ -415,6 +415,11 @@ func TestBillingClaude5Models(t *testing.T) {
 		bedrock [4]float64
 	}{
 		{
+			model:   "claude-fable-5-2",
+			list:    [4]float64{0.000008, 0.00004, 0.0000002, 0.00001},
+			bedrock: [4]float64{0.0000088, 0.000044, 0.00000022, 0.000011},
+		},
+		{
 			model:   "claude-fable-5-1",
 			list:    [4]float64{0.00001, 0.00005, 0.00000025, 0.0000125},
 			bedrock: [4]float64{0.000011, 0.000055, 0.000000275, 0.00001375},
